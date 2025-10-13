@@ -42,6 +42,8 @@ const Register = () => {
 
   const handleCreateAccount = () => {
     // Hook up registration logic here when backend/api is ready.
+    // For now, navigate to Landing screen
+    router.replace("/screens/home/Landing");
   };
 
   const handleSelectPhoto = async () => {
@@ -243,11 +245,13 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       borderRadius: 24,
       paddingVertical: 16,
       alignItems: "center",
-      backgroundColor: palette.primary,
-      marginTop: 12,
+      backgroundColor: scheme === "dark" ? "transparent" : palette.surface,
+      borderWidth: 1,
+      borderColor:
+        scheme === "dark" ? "rgba(255,255,255,0.35)" : palette.border,
     },
     loginLinkText: {
-      color: "#fff",
+      color: scheme === "dark" ? palette.text : palette.primaryStrong,
       fontSize: 16,
       fontWeight: "600",
     },

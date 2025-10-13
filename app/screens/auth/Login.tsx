@@ -40,6 +40,8 @@ const Login = () => {
 
   const handleLogin = () => {
     // Hook up authentication flow here when backend is ready.
+    // For now, navigate to Landing screen
+    router.replace("/screens/home/Landing");
   };
 
   const handleForgotPassword = () => {
