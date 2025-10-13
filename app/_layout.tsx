@@ -7,9 +7,9 @@ export default function RootLayout() {
     <ThemeProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
-        <Stack.Screen name="/screens/auth/Login" />
-        <Stack.Screen name="/screens/auth/Register" />
-        <Stack.Screen name="/screens/home/Landing" />
+        <Stack.Screen name="screens/auth/Login" />
+        <Stack.Screen name="screens/auth/Register" />
+        <Stack.Screen name="screens/home/Landing" />
       </Stack>
     </ThemeProvider>
   );

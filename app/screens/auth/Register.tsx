@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
@@ -93,9 +94,63 @@ const Register = () => {
     }
   };
 
-  const handleSelectPhoto = async () => {
-    // TODO: Integrate Expo ImagePicker to upload/select a profile photo.
-    setPhotoUri(null);
+  const pickImageFromLibrary = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== "granted") {
+        Alert.alert(
+          "Permission needed",
+          "Please allow photo library access to add a profile picture.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        const asset = result.assets?.[0];
+        if (asset?.uri) {
+          setPhotoUri(asset.uri);
+        }
+      }
+    } catch (pickerError) {
+      console.error("image-picker", pickerError);
+      Alert.alert(
+        "Could not open photos",
+        "Something went wrong while accessing your photo library. Please try again.",
+      );
+    }
+  };
+
+  const handleSelectPhoto = () => {
+    if (photoUri) {
+      Alert.alert("Profile photo", "Update your profile picture?", [
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => setPhotoUri(null),
+        },
+        {
+          text: "Choose new",
+          onPress: () => {
+            void pickImageFromLibrary();
+          },
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]);
+      return;
+    }
+
+    void pickImageFromLibrary();
   };
 
   return (
