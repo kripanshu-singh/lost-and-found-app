@@ -4,6 +4,8 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -16,6 +18,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { registerUser } from "../../api/auth";
+import { ApiError } from "../../api/httpClient";
 import { Palette, useAppTheme } from "../../theme";
 
 const Register = () => {
@@ -26,6 +30,8 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const styles = useMemo(
     () => createStyles(palette, scheme),
@@ -40,10 +46,51 @@ const Register = () => {
     [palette.textSecondary, scheme],
   );
 
-  const handleCreateAccount = () => {
-    // Hook up registration logic here when backend/api is ready.
-    // For now, navigate to Landing screen
-    router.replace("/screens/home/Landing");
+  const handleCreateAccount = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedName || !trimmedEmail || !trimmedPassword) {
+      setErrorMessage("Please fill in your name, email, and password.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await registerUser({
+        name: trimmedName,
+        email: trimmedEmail,
+        password: trimmedPassword,
+        profilePhotoUri: photoUri,
+      });
+
+      if (!response.success) {
+        setErrorMessage(response.message || "Unable to create your account.");
+        return;
+      }
+
+      Alert.alert("Registration successful", response.message, [
+        {
+          text: "Continue",
+          onPress: () => router.replace("/screens/home/Landing"),
+        },
+      ]);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : "We could not complete your registration. Please try again.";
+      setErrorMessage(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSelectPhoto = async () => {
@@ -186,12 +233,23 @@ const Register = () => {
               </View>
 
               <TouchableOpacity
-                style={styles.primaryButton}
+                style={[
+                  styles.primaryButton,
+                  isSubmitting && styles.primaryButtonDisabled,
+                ]}
                 activeOpacity={0.9}
                 onPress={handleCreateAccount}
+                disabled={isSubmitting}
               >
-                <Text style={styles.primaryButtonText}>Get Started</Text>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Get Started</Text>
+                )}
               </TouchableOpacity>
+              {errorMessage && (
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              )}
               <TouchableOpacity
                 style={styles.loginLink}
                 onPress={() => router.replace("/screens/auth/Login")}
@@ -332,10 +390,18 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       shadowRadius: 12,
       elevation: 4,
     },
+    primaryButtonDisabled: {
+      opacity: 0.6,
+    },
     primaryButtonText: {
       color: "#fff",
       fontSize: 16,
       fontWeight: "600",
+    },
+    errorText: {
+      textAlign: "center",
+      color: "#ff4d4f",
+      fontSize: 14,
     },
     termsText: {
       textAlign: "center",

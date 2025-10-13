@@ -7,6 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "lostandfoundapp",
     "userInterfaceStyle": "automatic",
+    "extra": {
+      "apiBaseUrl": "http://10.0.2.2:8080"
+    },
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
