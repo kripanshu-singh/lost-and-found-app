@@ -46,6 +46,10 @@ const Register = () => {
     () => (scheme === "dark" ? palette.textSecondary : "rgba(0,0,0,0.6)"),
     [palette.textSecondary, scheme],
   );
+  const actionIconColor = useMemo(
+    () => (scheme === "dark" ? palette.textSecondary : "rgba(0,0,0,0.45)"),
+    [palette.textSecondary, scheme],
+  );
 
   const handleCreateAccount = async () => {
     if (isSubmitting) {
@@ -251,7 +255,7 @@ const Register = () => {
                       <Ionicons
                         name="close-circle"
                         size={18}
-                        color="rgba(0,0,0,0.35)"
+                        color={actionIconColor}
                       />
                     </TouchableOpacity>
                   )}
@@ -281,7 +285,7 @@ const Register = () => {
                     <Ionicons
                       name={showPassword ? "eye-off-outline" : "eye-outline"}
                       size={18}
-                      color="rgba(0,0,0,0.45)"
+                      color={actionIconColor}
                     />
                   </TouchableOpacity>
                 </View>

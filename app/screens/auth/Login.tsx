@@ -37,7 +37,10 @@ const Login = () => {
     () => (scheme === "dark" ? palette.textSecondary : "rgba(0,0,0,0.6)"),
     [palette.textSecondary, scheme],
   );
-
+  const actionIconColor = useMemo(
+    () => (scheme === "dark" ? palette.textSecondary : "rgba(0,0,0,0.45)"),
+    [palette.textSecondary, scheme],
+  );
   const handleLogin = () => {
     // Hook up authentication flow here when backend is ready.
     // For now, navigate to Landing screen
@@ -132,7 +135,7 @@ const Login = () => {
                   <Ionicons
                     name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={18}
-                    color="rgba(0,0,0,0.45)"
+                    color={actionIconColor}
                   />
                 </TouchableOpacity>
               </View>
