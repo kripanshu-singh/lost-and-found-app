@@ -1,4 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from "@react-native-community/datetimepicker";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
@@ -37,14 +40,6 @@ const CATEGORY_OPTIONS: {
   { label: "Other", value: "OTHER", icon: "ellipse-outline" },
 ];
 
-function isValidISODate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime());
-}
-
 export default function ReportLostItem() {
   const router = useRouter();
   const { palette, scheme } = useAppTheme();
@@ -55,8 +50,15 @@ export default function ReportLostItem() {
 
   const [itemName, setItemName] = useState("");
   const [description, setDescription] = useState("");
+  const today = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  }, []);
   const [locationFound, setLocationFound] = useState("");
-  const [dateFound, setDateFound] = useState("");
+  const [dateFound, setDateFound] = useState<Date | null>(today);
+  const [iosDateDraft, setIosDateDraft] = useState<Date>(today);
+  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   const [category, setCategory] = useState<ItemCategory | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [isPickerVisible, setPickerVisible] = useState(false);
@@ -67,6 +69,66 @@ export default function ReportLostItem() {
     () => (scheme === "dark" ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)"),
     [scheme],
   );
+
+  const formatDateForDisplay = (value: Date | null) => {
+    if (!value) {
+      return "Select date";
+    }
+    const day = String(value.getDate()).padStart(2, "0");
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const year = value.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
+  const formatDateForApi = (value: Date) => {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const normalizeDate = (value: Date) => {
+    const normalized = new Date(value);
+    normalized.setHours(0, 0, 0, 0);
+    return normalized;
+  };
+
+  const openDatePicker = () => {
+    const reference = dateFound ? new Date(dateFound) : new Date(today);
+    reference.setHours(0, 0, 0, 0);
+    if (Platform.OS === "android") {
+      const androidPickerParams = {
+        value: reference,
+        mode: "date" as const,
+        display: "calendar" as const,
+        maximumDate: today,
+        onChange: (_event: any, selectedDate?: Date) => {
+          if (selectedDate) {
+            const nextDate = normalizeDate(selectedDate);
+            setDateFound(nextDate > today ? today : nextDate);
+          }
+        },
+      } as Parameters<typeof DateTimePickerAndroid.open>[0] & {
+        themeVariant?: "light" | "dark";
+      };
+
+      androidPickerParams.themeVariant = scheme === "dark" ? "dark" : "light";
+
+      DateTimePickerAndroid.open(androidPickerParams);
+    } else {
+      setIosDateDraft(reference > today ? today : reference);
+      setDatePickerVisible(true);
+    }
+  };
+
+  const handleDateCancel = () => {
+    setDatePickerVisible(false);
+  };
+
+  const handleDateConfirm = () => {
+    setDateFound(iosDateDraft > today ? today : iosDateDraft);
+    setDatePickerVisible(false);
+  };
 
   const addImageUris = (uris: string[]) => {
     setImages((prev: string[]) => {
@@ -177,7 +239,7 @@ export default function ReportLostItem() {
     const trimmedName = itemName.trim();
     const trimmedDescription = description.trim();
     const trimmedLocation = locationFound.trim();
-    const trimmedDate = dateFound.trim();
+    const isoDate = dateFound ? formatDateForApi(dateFound) : undefined;
 
     if (!trimmedName) {
       setErrorMessage("Item name is required.");
@@ -186,11 +248,6 @@ export default function ReportLostItem() {
 
     if (!category) {
       setErrorMessage("Select a category for the item.");
-      return;
-    }
-
-    if (trimmedDate && !isValidISODate(trimmedDate)) {
-      setErrorMessage("Enter the date in YYYY-MM-DD format.");
       return;
     }
 
@@ -203,7 +260,7 @@ export default function ReportLostItem() {
         category,
         description: trimmedDescription || undefined,
         locationFound: trimmedLocation || undefined,
-        dateFound: trimmedDate || undefined,
+        dateFound: isoDate,
         imageUris: images,
       });
 
@@ -288,15 +345,33 @@ export default function ReportLostItem() {
               />
             </View>
             <View style={styles.formColumn}>
-              <Text style={styles.label}>Date found</Text>
-              <TextInput
-                value={dateFound}
-                onChangeText={setDateFound}
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={placeholderColor}
-                keyboardType="numbers-and-punctuation"
-              />
+              <View style={styles.fieldHeader}>
+                <Text style={styles.label}>Date found</Text>
+                {dateFound ? (
+                  <TouchableOpacity
+                    onPress={() => setDateFound(null)}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.clearAction}>Clear</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <TouchableOpacity
+                style={styles.dateInput}
+                onPress={openDatePicker}
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={18}
+                  color={palette.textSecondary}
+                />
+                <Text
+                  style={dateFound ? styles.dateValue : styles.datePlaceholder}
+                >
+                  {formatDateForDisplay(dateFound)}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -408,6 +483,40 @@ export default function ReportLostItem() {
         styles={styles}
         palette={palette}
       />
+      {Platform.OS === "ios" ? (
+        <Modal
+          transparent
+          visible={isDatePickerVisible}
+          animationType="slide"
+          onRequestClose={handleDateCancel}
+        >
+          <Pressable style={styles.pickerOverlay} onPress={handleDateCancel}>
+            <View style={styles.iosDateSheet}>
+              <View style={styles.iosDateToolbar}>
+                <TouchableOpacity onPress={handleDateCancel} hitSlop={12}>
+                  <Text style={styles.iosDateButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDateConfirm} hitSlop={12}>
+                  <Text style={styles.iosDateButtonText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={iosDateDraft}
+                mode="date"
+                display="spinner"
+                maximumDate={today}
+                textColor={scheme === "dark" ? "#fff" : undefined}
+                onChange={(_event, selectedDate) => {
+                  if (selectedDate) {
+                    const nextDate = normalizeDate(selectedDate);
+                    setIosDateDraft(nextDate > today ? today : nextDate);
+                  }
+                }}
+              />
+            </View>
+          </Pressable>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -451,6 +560,16 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       fontWeight: "600",
       color: palette.text,
     },
+    fieldHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    clearAction: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: palette.primary,
+    },
     input: {
       borderWidth: 1,
       borderColor: palette.border,
@@ -473,6 +592,28 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
     formColumn: {
       flex: 1,
       gap: 8,
+    },
+    dateInput: {
+      borderWidth: 1,
+      borderColor: palette.border,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: Platform.OS === "android" ? 12 : 14,
+      backgroundColor:
+        scheme === "dark" ? "rgba(20,27,38,0.9)" : "rgba(255,255,255,0.96)",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+    },
+    dateValue: {
+      fontSize: 15,
+      color: palette.text,
+      fontWeight: "500",
+    },
+    datePlaceholder: {
+      fontSize: 15,
+      color: scheme === "dark" ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)",
+      fontWeight: "500",
     },
     categoryGrid: {
       flexDirection: "row",
@@ -632,6 +773,26 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       fontSize: 16,
       fontWeight: "600",
       color: palette.text,
+    },
+    iosDateSheet: {
+      marginHorizontal: 16,
+      marginBottom: 32,
+      borderRadius: 16,
+      backgroundColor: palette.surface,
+      borderWidth: 1,
+      borderColor: palette.border,
+      overflow: "hidden",
+    },
+    iosDateToolbar: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    iosDateButtonText: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: palette.primary,
     },
   });
 }

@@ -83,11 +83,12 @@ export async function reportLostItem(
             name: extractFileName(uri, "item-image", index),
             type: resolveMimeType(uri),
         } as unknown as Blob;
+        console.log(`\n ~ reportLostItem ~ file :- `, file);
 
         if (index === 0) {
             formData.append("images", file);
         }
-        formData.append("images[]", file);
+        // formData.append("images[]", file);
     });
 
     const config: HttpRequestConfig = {
