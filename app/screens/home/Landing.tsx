@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { Image } from "expo-image";
 import React, { useMemo } from "react";
 import {
   ScrollView,
@@ -9,15 +9,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useAuth } from "../../../src/auth/AuthProvider";
 import { useAppTheme } from "../../../src/theme";
 
 export default function Landing() {
-  const router = useRouter();
   const { palette, scheme } = useAppTheme();
+  const { session } = useAuth();
   const styles = useMemo(
     () => createStyles(palette, scheme),
     [palette, scheme],
   );
+
+  const greetingName = session?.name?.split(" ").filter(Boolean)[0] ?? "there";
+  const profilePhoto = session?.profilePhoto ?? null;
 
   return (
     <View style={styles.container}>
@@ -30,17 +34,25 @@ export default function Landing() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
-            <Text style={styles.greeting}>Welcome back!</Text>
+            <Text style={styles.greeting}>Welcome, {greetingName}!</Text>
             <Text style={styles.subtitle}>
-              Let's find what you're looking for
+              Let&apos;s find what you&apos;re looking for
             </Text>
           </View>
           <TouchableOpacity style={styles.profileButton}>
-            <Ionicons
-              name="person-circle-outline"
-              size={32}
-              color={palette.text}
-            />
+            {profilePhoto ? (
+              <Image
+                source={{ uri: profilePhoto }}
+                style={styles.profilePhoto}
+                contentFit="cover"
+              />
+            ) : (
+              <Ionicons
+                name="person-circle-outline"
+                size={32}
+                color={palette.text}
+              />
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -206,6 +218,17 @@ const createStyles = (palette: any, scheme: "light" | "dark") =>
     },
     profileButton: {
       padding: 4,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      overflow: "hidden",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    profilePhoto: {
+      width: "100%",
+      height: "100%",
+      borderRadius: 20,
     },
     scrollView: {
       flex: 1,
