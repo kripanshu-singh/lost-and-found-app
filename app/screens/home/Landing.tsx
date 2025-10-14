@@ -1,7 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
+  Alert,
+  Modal,
+  Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -10,11 +13,12 @@ import {
   View,
 } from "react-native";
 import { useAuth } from "../../../src/auth/AuthProvider";
-import { useAppTheme } from "../../../src/theme";
+import { ThemePreference, useAppTheme } from "../../../src/theme";
 
 export default function Landing() {
-  const { palette, scheme } = useAppTheme();
-  const { session } = useAuth();
+  const { palette, scheme, preference, setPreference } = useAppTheme();
+  const { session, clearSession } = useAuth();
+  const [isMenuVisible, setMenuVisible] = useState(false);
   const styles = useMemo(
     () => createStyles(palette, scheme),
     [palette, scheme],
@@ -22,6 +26,52 @@ export default function Landing() {
 
   const greetingName = session?.name?.split(" ").filter(Boolean)[0] ?? "there";
   const profilePhoto = session?.profilePhoto ?? null;
+  const email = session?.email ?? "";
+
+  const handleCloseMenu = () => setMenuVisible(false);
+
+  const handleViewProfile = () => {
+    setMenuVisible(false);
+    Alert.alert("Profile", "Profile view is coming soon.");
+  };
+
+  const themeOptions = useMemo(
+    () =>
+      [
+        {
+          label: "System",
+          value: "system",
+          description: "Follow device appearance",
+          icon: "phone-portrait-outline",
+        },
+        {
+          label: "Light",
+          value: "light",
+          description: "Use light mode",
+          icon: "sunny-outline",
+        },
+        {
+          label: "Dark",
+          value: "dark",
+          description: "Use dark mode",
+          icon: "moon-outline",
+        },
+      ] satisfies {
+        label: string;
+        value: ThemePreference;
+        description: string;
+        icon: keyof typeof Ionicons.glyphMap;
+      }[],
+    [],
+  );
+
+  const handleLogout = async () => {
+    try {
+      await clearSession();
+    } finally {
+      setMenuVisible(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -39,7 +89,11 @@ export default function Landing() {
               Let&apos;s find what you&apos;re looking for
             </Text>
           </View>
-          <TouchableOpacity style={styles.profileButton}>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={() => setMenuVisible(true)}
+            activeOpacity={0.85}
+          >
             {profilePhoto ? (
               <Image
                 source={{ uri: profilePhoto }}
@@ -146,6 +200,100 @@ export default function Landing() {
         </View>
       </ScrollView>
 
+      <Modal
+        visible={isMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseMenu}
+      >
+        <Pressable style={styles.menuOverlay} onPress={handleCloseMenu}>
+          <Pressable style={styles.menuContainer} onPress={() => {}}>
+            <View style={styles.menuHeader}>
+              {profilePhoto ? (
+                <Image
+                  source={{ uri: profilePhoto }}
+                  style={styles.menuAvatar}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={styles.menuAvatarFallback}>
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color={palette.text}
+                  />
+                </View>
+              )}
+              <View style={styles.menuHeaderText}>
+                <Text style={styles.menuHeaderName}>
+                  {session?.name ?? "Guest"}
+                </Text>
+                {email ? (
+                  <Text style={styles.menuHeaderEmail} numberOfLines={1}>
+                    {email}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleViewProfile}
+            >
+              <Ionicons name="person-outline" size={18} color={palette.text} />
+              <Text style={styles.menuItemText}>View Profile</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <View style={styles.menuSectionHeader}>
+              <Text style={styles.menuSectionLabel}>Theme</Text>
+            </View>
+            {themeOptions.map((option) => {
+              const isActive = preference === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={styles.menuItem}
+                  onPress={() => setPreference(option.value)}
+                  accessibilityState={{ selected: isActive }}
+                  accessibilityRole="button"
+                >
+                  <Ionicons
+                    name={option.icon}
+                    size={18}
+                    color={isActive ? palette.primary : palette.textSecondary}
+                  />
+                  <View style={styles.themeOptionBody}>
+                    <Text style={styles.menuItemText}>{option.label}</Text>
+                    <Text style={styles.themeOptionDescription}>
+                      {option.description}
+                    </Text>
+                  </View>
+                  {isActive ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={18}
+                      color={palette.primary}
+                      style={styles.themeOptionCheck}
+                    />
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+            <View style={styles.menuDivider} />
+            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+              <Ionicons
+                name="log-out-outline"
+                size={18}
+                color={palette.danger}
+              />
+              <Text style={[styles.menuItemText, { color: palette.danger }]}>
+                Log out
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem}>
@@ -229,6 +377,99 @@ const createStyles = (palette: any, scheme: "light" | "dark") =>
       width: "100%",
       height: "100%",
       borderRadius: 20,
+    },
+    menuOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.15)",
+      justifyContent: "flex-start",
+      alignItems: "flex-end",
+      paddingTop: 80,
+      paddingRight: 16,
+    },
+    menuContainer: {
+      width: 220,
+      backgroundColor: palette.surface,
+      borderRadius: 16,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: palette.border,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: scheme === "dark" ? 0.25 : 0.15,
+      shadowRadius: 12,
+      elevation: 10,
+    },
+    menuHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+    },
+    menuHeaderText: {
+      flex: 1,
+    },
+    menuHeaderName: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: palette.text,
+    },
+    menuHeaderEmail: {
+      fontSize: 13,
+      color: palette.textSecondary,
+    },
+    menuAvatar: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+    },
+    menuAvatarFallback: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor:
+        scheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    menuDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: palette.border,
+      marginVertical: 4,
+    },
+    menuSectionHeader: {
+      paddingHorizontal: 16,
+      paddingVertical: 4,
+    },
+    menuSectionLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: palette.textSecondary,
+      textTransform: "uppercase",
+      letterSpacing: 0.5,
+    },
+    menuItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+    },
+    menuItemText: {
+      fontSize: 15,
+      color: palette.text,
+      fontWeight: "500",
+    },
+    themeOptionBody: {
+      flex: 1,
+    },
+    themeOptionDescription: {
+      fontSize: 12,
+      color: palette.textSecondary,
+      marginTop: 2,
+    },
+    themeOptionCheck: {
+      marginLeft: "auto",
     },
     scrollView: {
       flex: 1,
