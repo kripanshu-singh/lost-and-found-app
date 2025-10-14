@@ -19,12 +19,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { loginUser, type LoginResponseData } from "../../../src/api/auth";
 import { ApiError } from "../../../src/api/httpClient";
-import { saveSession, SessionError } from "../../../src/api/session";
+import { SessionError } from "../../../src/api/session";
+import { useAuth } from "../../../src/auth/AuthProvider";
 import { Palette, useAppTheme } from "../../../src/theme";
 
 const Login = () => {
   const router = useRouter();
   const { palette, scheme } = useAppTheme();
+  const { setSession: persistSession } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -109,7 +111,7 @@ const Login = () => {
         return;
       }
 
-      await saveSession({
+      await persistSession({
         accessToken: loginData.accessToken,
         refreshToken: loginData.refreshToken,
         userId: loginData.userId,
