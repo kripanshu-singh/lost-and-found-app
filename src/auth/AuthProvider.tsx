@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { ActivityIndicator, View } from "react-native";
 import {
   AuthSession,
   clearSession as clearPersistedSession,
@@ -15,6 +16,7 @@ import {
   saveSession,
   SessionError,
 } from "../api/session";
+import { useAppTheme } from "../theme";
 
 interface AuthContextValue {
   session: AuthSession | null;
@@ -31,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isHydrating, setIsHydrating] = useState(true);
   const segments = useSegments();
   const router = useRouter();
+  const { palette } = useAppTheme();
 
   useEffect(() => {
     let isMounted = true;
@@ -101,6 +104,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [clearSession, isHydrating, persistSession, refreshSession, session],
   );
+
+  if (isHydrating) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: palette.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={palette.primary} />
+      </View>
+    );
+  }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -10,9 +10,9 @@ export default function RootLayout() {
       <ThemeProvider>
         <AuthProvider>
           <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="screens/home/Landing" />
             <Stack.Screen name="index" />
             <Stack.Screen name="screens/auth/Login" />
+            <Stack.Screen name="screens/home/Landing" />
             <Stack.Screen name="screens/auth/Register" />
           </Stack>
         </AuthProvider>
