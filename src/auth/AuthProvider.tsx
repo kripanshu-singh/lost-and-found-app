@@ -10,6 +10,8 @@ import React, {
   useState,
 } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { refreshTokens, type RefreshResponseData } from "../api/auth";
+import { ApiError, registerTokenRefreshHandler } from "../api/httpClient";
 import {
   AuthSession,
   clearSession as clearPersistedSession,
@@ -17,8 +19,6 @@ import {
   saveSession,
   SessionError,
 } from "../api/session";
-import { refreshTokens, type RefreshResponseData } from "../api/auth";
-import { ApiError, registerTokenRefreshHandler } from "../api/httpClient";
 import { useAppTheme } from "../theme";
 
 interface AuthContextValue {
@@ -112,7 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const response = await refreshTokens({ refreshToken: current.refreshToken });
+      const response = await refreshTokens({
+        refreshToken: current.refreshToken,
+      });
       const refreshData =
         response.data &&
         !Array.isArray(response.data) &&
@@ -132,13 +134,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updatedSession: AuthSession = {
         accessToken: refreshData.accessToken,
         refreshToken: refreshData.refreshToken,
-        userId: typeof refreshData.userId === "number" ? refreshData.userId : current.userId,
-        name: typeof refreshData.name === "string" ? refreshData.name : current.name,
-        email: typeof refreshData.email === "string" ? refreshData.email : current.email,
+        userId:
+          typeof refreshData.userId === "number"
+            ? refreshData.userId
+            : current.userId,
+        name:
+          typeof refreshData.name === "string"
+            ? refreshData.name
+            : current.name,
+        email:
+          typeof refreshData.email === "string"
+            ? refreshData.email
+            : current.email,
         profilePhoto:
           typeof refreshData.profilePhoto === "string"
             ? refreshData.profilePhoto
-            : current.profilePhoto ?? null,
+            : (current.profilePhoto ?? null),
       };
 
       await saveSession(updatedSession);
@@ -173,7 +184,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unregister = registerTokenRefreshHandler(async () => {
       const refreshed = await performRefresh();
       return refreshed
-        ? { accessToken: refreshed.accessToken, refreshToken: refreshed.refreshToken }
+        ? {
+            accessToken: refreshed.accessToken,
+            refreshToken: refreshed.refreshToken,
+          }
         : null;
     });
 
