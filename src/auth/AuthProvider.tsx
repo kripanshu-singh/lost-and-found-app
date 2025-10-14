@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-  const previousAccessToken = current?.accessToken ?? null;
+    const previousAccessToken = current?.accessToken ?? null;
 
     try {
       const response = await refreshTokens({
@@ -207,9 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: meData.name,
         email: meData.email,
         profilePhoto:
-          typeof meData.profilePhoto === "string"
-            ? meData.profilePhoto
-            : null,
+          typeof meData.profilePhoto === "string" ? meData.profilePhoto : null,
       };
 
       await saveSession(normalizedSession);

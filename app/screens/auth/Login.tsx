@@ -19,11 +19,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { loginUser, type LoginResponseData } from "../../../src/api/auth";
 import { ApiError, setAccessToken } from "../../../src/api/httpClient";
+import { SessionError } from "../../../src/api/session";
 import {
   getCurrentUser,
   type CurrentUserResponseData,
 } from "../../../src/api/users";
-import { SessionError } from "../../../src/api/session";
 import { useAuth } from "../../../src/auth/AuthProvider";
 import { Palette, useAppTheme } from "../../../src/theme";
 
