@@ -2,12 +2,14 @@ import { Platform } from "react-native";
 import { httpClient, type HttpRequestConfig } from "./httpClient";
 
 export type ItemCategory =
-    | "WALLET"
     | "PHONE"
+    | "WALLET"
     | "KEYS"
     | "BAG"
-    | "DOCUMENT"
     | "ELECTRONIC"
+    | "CLOTHING"
+    | "STATIONERY"
+    | "DOCUMENT"
     | "OTHER";
 
 export interface ReportLostItemPayload {
@@ -16,6 +18,8 @@ export interface ReportLostItemPayload {
     description?: string;
     locationFound?: string;
     dateFound?: string;
+    latitude?: number;
+    longitude?: number;
     imageUris?: string[];
 }
 
@@ -75,6 +79,13 @@ export async function reportLostItem(
     }
     if (payload.dateFound) {
         formData.append("dateFound", payload.dateFound);
+    }
+    if (
+        typeof payload.latitude === "number" &&
+        typeof payload.longitude === "number"
+    ) {
+        formData.append("latitude", String(payload.latitude));
+        formData.append("longitude", String(payload.longitude));
     }
 
     payload.imageUris?.slice(0, 5).forEach((uri, index) => {

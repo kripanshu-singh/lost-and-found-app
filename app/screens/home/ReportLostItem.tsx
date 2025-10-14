@@ -4,8 +4,9 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
+import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +21,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import MapView, {
+  Marker,
+  PROVIDER_GOOGLE,
+  type MapPressEvent,
+  type Region,
+} from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "../../../src/api/httpClient";
 import { reportLostItem, type ItemCategory } from "../../../src/api/items";
@@ -31,14 +38,28 @@ const CATEGORY_OPTIONS: {
   value: ItemCategory;
   icon: string;
 }[] = [
-  { label: "Wallet", value: "WALLET", icon: "wallet-outline" },
   { label: "Phone", value: "PHONE", icon: "phone-portrait-outline" },
+  { label: "Wallet", value: "WALLET", icon: "wallet-outline" },
   { label: "Keys", value: "KEYS", icon: "key-outline" },
   { label: "Bag", value: "BAG", icon: "bag-outline" },
-  { label: "Document", value: "DOCUMENT", icon: "document-text-outline" },
   { label: "Electronic", value: "ELECTRONIC", icon: "desktop-outline" },
+  { label: "Clothing", value: "CLOTHING", icon: "shirt-outline" },
+  { label: "Stationery", value: "STATIONERY", icon: "create-outline" },
+  { label: "Document", value: "DOCUMENT", icon: "document-text-outline" },
   { label: "Other", value: "OTHER", icon: "ellipse-outline" },
 ];
+
+const DEFAULT_REGION: Region = {
+  latitude: 25.8318,
+  longitude: 82.68242,
+  latitudeDelta: 0.015,
+  longitudeDelta: 0.015,
+};
+
+type LatLng = {
+  latitude: number;
+  longitude: number;
+};
 
 export default function ReportLostItem() {
   const router = useRouter();
@@ -48,6 +69,15 @@ export default function ReportLostItem() {
     [palette, scheme],
   );
 
+  const mapRef = useRef<MapView | null>(null);
+  const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
+  const [selectedCoordinate, setSelectedCoordinate] = useState<LatLng | null>(
+    null,
+  );
+  const [isMapModalVisible, setMapModalVisible] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [itemName, setItemName] = useState("");
   const [description, setDescription] = useState("");
   const today = useMemo(() => {
@@ -93,6 +123,109 @@ export default function ReportLostItem() {
     return normalized;
   };
 
+  useEffect(() => {
+    if (!isMapModalVisible || !mapRef.current) {
+      return;
+    }
+
+    const targetRegion = selectedCoordinate
+      ? {
+          latitude: selectedCoordinate.latitude,
+          longitude: selectedCoordinate.longitude,
+          latitudeDelta: 0.008,
+          longitudeDelta: 0.008,
+        }
+      : mapRegion;
+
+    mapRef.current.animateToRegion(targetRegion, 250);
+  }, [isMapModalVisible, selectedCoordinate, mapRegion]);
+
+  const handleMapPress = (event: MapPressEvent) => {
+    const { coordinate } = event.nativeEvent;
+    const normalized: LatLng = {
+      latitude: Number(coordinate.latitude.toFixed(6)),
+      longitude: Number(coordinate.longitude.toFixed(6)),
+    };
+    setSelectedCoordinate(normalized);
+    setMapRegion((prev) => ({
+      latitude: normalized.latitude,
+      longitude: normalized.longitude,
+      latitudeDelta: prev?.latitudeDelta ?? 0.01,
+      longitudeDelta: prev?.longitudeDelta ?? 0.01,
+    }));
+    setLocationError(null);
+  };
+
+  const clearSelectedCoordinate = () => {
+    setSelectedCoordinate(null);
+    setLocationError(null);
+  };
+
+  const openMapModal = async () => {
+    setLocationError(null);
+    setHasLocationPermission(false);
+    setMapModalVisible(true);
+    setIsLocating(true);
+
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      const granted = permission.status === "granted";
+      setHasLocationPermission(granted);
+
+      if (!granted) {
+        setLocationError(
+          "Location permission denied. Pan the map and tap to drop a pin.",
+        );
+        setMapRegion(DEFAULT_REGION);
+        return;
+      }
+
+      const current = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const nextRegion: Region = {
+        latitude: current.coords.latitude,
+        longitude: current.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+
+      setMapRegion(nextRegion);
+      setSelectedCoordinate(
+        (prev) =>
+          prev ?? {
+            latitude: Number(current.coords.latitude.toFixed(6)),
+            longitude: Number(current.coords.longitude.toFixed(6)),
+          },
+      );
+    } catch (error) {
+      setLocationError(
+        "Couldn't fetch your location. Pan the map and tap to drop a pin.",
+      );
+      setMapRegion(DEFAULT_REGION);
+      setHasLocationPermission(false);
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const closeMapModal = () => {
+    setMapModalVisible(false);
+    setIsLocating(false);
+    mapRef.current = null;
+  };
+
+  const handleConfirmLocation = () => {
+    if (!selectedCoordinate) {
+      setLocationError("Tap the map to drop a pin before confirming.");
+      return;
+    }
+
+    setLocationError(null);
+    closeMapModal();
+  };
+
   const openDatePicker = () => {
     const reference = dateFound ? new Date(dateFound) : new Date(today);
     reference.setHours(0, 0, 0, 0);
@@ -128,6 +261,15 @@ export default function ReportLostItem() {
   const handleDateConfirm = () => {
     setDateFound(iosDateDraft > today ? today : iosDateDraft);
     setDatePickerVisible(false);
+  };
+
+  const handleIosDateChange = (selectedDate: Date) => {
+    const nextDate = normalizeDate(selectedDate);
+    setIosDateDraft(nextDate > today ? today : nextDate);
+  };
+
+  const handleOpenMap = () => {
+    void openMapModal();
   };
 
   const addImageUris = (uris: string[]) => {
@@ -261,6 +403,8 @@ export default function ReportLostItem() {
         description: trimmedDescription || undefined,
         locationFound: trimmedLocation || undefined,
         dateFound: isoDate,
+        latitude: selectedCoordinate?.latitude,
+        longitude: selectedCoordinate?.longitude,
         imageUris: images,
       });
 
@@ -297,178 +441,63 @@ export default function ReportLostItem() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-              hitSlop={12}
-            >
-              <Ionicons name="chevron-back" size={24} color={palette.text} />
-            </TouchableOpacity>
-            <Text style={styles.title}>Report Lost Item</Text>
-            <View style={{ width: 32 }} />
-          </View>
+          <FormHeader
+            styles={styles}
+            palette={palette}
+            onBack={() => router.back()}
+          />
 
-          <View style={styles.formSection}>
-            <Text style={styles.label}>Item name *</Text>
-            <TextInput
-              value={itemName}
-              onChangeText={setItemName}
-              style={styles.input}
-              placeholder="What did you find?"
-              placeholderTextColor={placeholderColor}
-            />
-          </View>
+          <ItemDetailsSection
+            styles={styles}
+            placeholderColor={placeholderColor}
+            itemName={itemName}
+            onChangeItemName={setItemName}
+            description={description}
+            onChangeDescription={setDescription}
+          />
 
-          <View style={styles.formSection}>
-            <Text style={styles.label}>Description</Text>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              style={[styles.input, styles.multilineInput]}
-              placeholder="Describe the item, unique markings, etc."
-              placeholderTextColor={placeholderColor}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
+          <LocationAndDateRow
+            styles={styles}
+            palette={palette}
+            placeholderColor={placeholderColor}
+            locationFound={locationFound}
+            onChangeLocation={setLocationFound}
+            onOpenMap={handleOpenMap}
+            selectedCoordinate={selectedCoordinate}
+            onClearCoordinate={clearSelectedCoordinate}
+            locationError={locationError}
+            isMapModalVisible={isMapModalVisible}
+            dateFound={dateFound}
+            onDatePress={openDatePicker}
+            onClearDate={() => setDateFound(null)}
+            formatDateForDisplay={formatDateForDisplay}
+          />
 
-          <View style={styles.formRow}>
-            <View style={styles.formColumn}>
-              <Text style={styles.label}>Location found</Text>
-              <TextInput
-                value={locationFound}
-                onChangeText={setLocationFound}
-                style={styles.input}
-                placeholder="Where was it found?"
-                placeholderTextColor={placeholderColor}
-              />
-            </View>
-            <View style={styles.formColumn}>
-              <View style={styles.fieldHeader}>
-                <Text style={styles.label}>Date found</Text>
-                {dateFound ? (
-                  <TouchableOpacity
-                    onPress={() => setDateFound(null)}
-                    hitSlop={8}
-                  >
-                    <Text style={styles.clearAction}>Clear</Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-              <TouchableOpacity
-                style={styles.dateInput}
-                onPress={openDatePicker}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name="calendar-outline"
-                  size={18}
-                  color={palette.textSecondary}
-                />
-                <Text
-                  style={dateFound ? styles.dateValue : styles.datePlaceholder}
-                >
-                  {formatDateForDisplay(dateFound)}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          <CategorySection
+            styles={styles}
+            palette={palette}
+            selectedCategory={category}
+            onSelectCategory={setCategory}
+          />
 
-          <View style={styles.formSection}>
-            <Text style={styles.label}>Category *</Text>
-            <View style={styles.categoryGrid}>
-              {CATEGORY_OPTIONS.map((option) => {
-                const isActive = category === option.value;
-                return (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      styles.categoryCard,
-                      isActive && styles.categoryCardActive,
-                    ]}
-                    onPress={() => setCategory(option.value)}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons
-                      name={option.icon as any}
-                      size={20}
-                      color={isActive ? palette.surface : palette.primary}
-                    />
-                    <Text
-                      style={[
-                        styles.categoryLabel,
-                        isActive && styles.categoryLabelActive,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
+          <PhotosSection
+            styles={styles}
+            palette={palette}
+            images={images}
+            onAddImage={handleAddImage}
+            onRemoveImage={handleRemoveImage}
+          />
 
-          <View style={styles.formSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.label}>Photos</Text>
-              <Text style={styles.hint}>{images.length}/5 attached</Text>
-            </View>
-            <View style={styles.imageGrid}>
-              {images.map((uri) => (
-                <View key={uri} style={styles.imageWrapper}>
-                  <Image
-                    source={{ uri }}
-                    style={styles.imagePreview}
-                    contentFit="cover"
-                  />
-                  <TouchableOpacity
-                    style={styles.removeImageButton}
-                    onPress={() => handleRemoveImage(uri)}
-                    hitSlop={8}
-                  >
-                    <Ionicons name="close" size={16} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-              {images.length < 5 ? (
-                <TouchableOpacity
-                  style={styles.addImageButton}
-                  onPress={handleAddImage}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons
-                    name="image-outline"
-                    size={24}
-                    color={palette.primary}
-                  />
-                  <Text style={styles.addImageLabel}>Add photos</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          </View>
+          <ErrorBanner styles={styles} message={errorMessage} />
 
-          {errorMessage ? (
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          ) : null}
-
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              isSubmitting && styles.submitButtonDisabled,
-            ]}
-            activeOpacity={0.9}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.submitButtonLabel}>Submit report</Text>
-            )}
-          </TouchableOpacity>
+          <SubmitButton
+            styles={styles}
+            isSubmitting={isSubmitting}
+            onSubmit={handleSubmit}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
+
       <ImagePickerSheet
         visible={isPickerVisible}
         onDismiss={() => setPickerVisible(false)}
@@ -483,40 +512,34 @@ export default function ReportLostItem() {
         styles={styles}
         palette={palette}
       />
+
       {Platform.OS === "ios" ? (
-        <Modal
-          transparent
+        <IosDatePickerModal
           visible={isDatePickerVisible}
-          animationType="slide"
-          onRequestClose={handleDateCancel}
-        >
-          <Pressable style={styles.pickerOverlay} onPress={handleDateCancel}>
-            <View style={styles.iosDateSheet}>
-              <View style={styles.iosDateToolbar}>
-                <TouchableOpacity onPress={handleDateCancel} hitSlop={12}>
-                  <Text style={styles.iosDateButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleDateConfirm} hitSlop={12}>
-                  <Text style={styles.iosDateButtonText}>Done</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={iosDateDraft}
-                mode="date"
-                display="spinner"
-                maximumDate={today}
-                textColor={scheme === "dark" ? "#fff" : undefined}
-                onChange={(_event, selectedDate) => {
-                  if (selectedDate) {
-                    const nextDate = normalizeDate(selectedDate);
-                    setIosDateDraft(nextDate > today ? today : nextDate);
-                  }
-                }}
-              />
-            </View>
-          </Pressable>
-        </Modal>
+          iosDateDraft={iosDateDraft}
+          today={today}
+          scheme={scheme}
+          onCancel={handleDateCancel}
+          onConfirm={handleDateConfirm}
+          onChange={handleIosDateChange}
+          styles={styles}
+        />
       ) : null}
+
+      <MapLocationModal
+        visible={isMapModalVisible}
+        onClose={closeMapModal}
+        styles={styles}
+        palette={palette}
+        mapRef={mapRef}
+        mapRegion={mapRegion}
+        hasLocationPermission={hasLocationPermission}
+        selectedCoordinate={selectedCoordinate}
+        onPressMap={handleMapPress}
+        isLocating={isLocating}
+        onConfirm={handleConfirmLocation}
+        locationError={locationError}
+      />
     </SafeAreaView>
   );
 }
@@ -552,6 +575,9 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       fontWeight: "700",
       color: palette.text,
     },
+    formSectionGroup: {
+      gap: 16,
+    },
     formSection: {
       gap: 8,
     },
@@ -585,13 +611,54 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       minHeight: 100,
       textAlignVertical: "top",
     },
-    formRow: {
+    mapTrigger: {
+      marginTop: 6,
+      borderWidth: 1,
+      borderColor: palette.border,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: Platform.OS === "android" ? 12 : 14,
+      backgroundColor: palette.surface,
       flexDirection: "row",
+      alignItems: "center",
       gap: 12,
     },
-    formColumn: {
+    mapTriggerIconWrapper: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor:
+        scheme === "dark" ? "rgba(31,45,61,0.6)" : "rgba(229,240,255,0.9)",
+    },
+    mapTriggerContent: {
       flex: 1,
-      gap: 8,
+      gap: 2,
+    },
+    mapTriggerTitle: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: palette.text,
+    },
+    mapTriggerSubtitle: {
+      fontSize: 12,
+      color: palette.textSecondary,
+    },
+    mapTriggerClear: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 6,
+    },
+    mapTriggerClearText: {
+      fontSize: 12,
+      color: palette.textSecondary,
+    },
+    mapErrorText: {
+      fontSize: 13,
+      color: palette.danger,
+      marginTop: 6,
     },
     dateInput: {
       borderWidth: 1,
@@ -794,10 +861,436 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       fontWeight: "600",
       color: palette.primary,
     },
+    mapModalSafeArea: {
+      flex: 1,
+      backgroundColor: palette.background,
+      paddingHorizontal: 16,
+      paddingBottom: 20,
+    },
+    mapModalHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 12,
+    },
+    mapModalTitle: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: palette.text,
+    },
+    mapModalClose: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: palette.surface,
+      borderWidth: 1,
+      borderColor: palette.border,
+    },
+    mapModalBody: {
+      flex: 1,
+      borderRadius: 18,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: palette.border,
+    },
+    mapModalMap: {
+      flex: 1,
+    },
+    mapOverlay: {
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      justifyContent: "center",
+      alignItems: "center",
+      gap: 8,
+      backgroundColor:
+        scheme === "dark" ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.3)",
+    },
+    mapLoadingText: {
+      fontSize: 13,
+      color: palette.textSecondary,
+      fontWeight: "500",
+    },
+    mapModalFooter: {
+      flexDirection: "row",
+      marginTop: 16,
+      gap: 12,
+    },
+    mapModalSecondary: {
+      flex: 1,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: palette.border,
+      backgroundColor: palette.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 14,
+    },
+    mapModalSecondaryText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: palette.text,
+    },
+    mapModalPrimary: {
+      flex: 1,
+      borderRadius: 16,
+      backgroundColor: palette.primary,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 14,
+    },
+    mapModalPrimaryDisabled: {
+      opacity: 0.6,
+    },
+    mapModalPrimaryText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: palette.surface,
+    },
+    mapModalError: {
+      marginTop: 12,
+      fontSize: 13,
+      color: palette.danger,
+      textAlign: "center",
+    },
+    mapModalHint: {
+      marginTop: 12,
+      fontSize: 13,
+      color: palette.textSecondary,
+      textAlign: "center",
+    },
   });
 }
 
 type ReportLostItemStyles = ReturnType<typeof createStyles>;
+
+type FormHeaderProps = {
+  styles: ReportLostItemStyles;
+  palette: Palette;
+  onBack: () => void;
+};
+
+function FormHeader({ styles, palette, onBack }: FormHeaderProps) {
+  return (
+    <View style={styles.headerRow}>
+      <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={12}>
+        <Ionicons name="chevron-back" size={24} color={palette.text} />
+      </TouchableOpacity>
+      <Text style={styles.title}>Report Lost Item</Text>
+      <View style={{ width: 32 }} />
+    </View>
+  );
+}
+
+type ItemDetailsSectionProps = {
+  styles: ReportLostItemStyles;
+  placeholderColor: string;
+  itemName: string;
+  onChangeItemName: (value: string) => void;
+  description: string;
+  onChangeDescription: (value: string) => void;
+};
+
+function ItemDetailsSection({
+  styles,
+  placeholderColor,
+  itemName,
+  onChangeItemName,
+  description,
+  onChangeDescription,
+}: ItemDetailsSectionProps) {
+  return (
+    <>
+      <View style={styles.formSection}>
+        <Text style={styles.label}>Item name *</Text>
+        <TextInput
+          value={itemName}
+          onChangeText={onChangeItemName}
+          style={styles.input}
+          placeholder="What did you find?"
+          placeholderTextColor={placeholderColor}
+        />
+      </View>
+
+      <View style={styles.formSection}>
+        <Text style={styles.label}>Description</Text>
+        <TextInput
+          value={description}
+          onChangeText={onChangeDescription}
+          style={[styles.input, styles.multilineInput]}
+          placeholder="Describe the item, unique markings, etc."
+          placeholderTextColor={placeholderColor}
+          multiline
+          numberOfLines={4}
+        />
+      </View>
+    </>
+  );
+}
+
+type LocationAndDateRowProps = {
+  styles: ReportLostItemStyles;
+  palette: Palette;
+  placeholderColor: string;
+  locationFound: string;
+  onChangeLocation: (value: string) => void;
+  onOpenMap: () => void;
+  selectedCoordinate: LatLng | null;
+  onClearCoordinate: () => void;
+  locationError: string | null;
+  isMapModalVisible: boolean;
+  dateFound: Date | null;
+  onDatePress: () => void;
+  onClearDate: () => void;
+  formatDateForDisplay: (value: Date | null) => string;
+};
+
+function LocationAndDateRow({
+  styles,
+  palette,
+  placeholderColor,
+  locationFound,
+  onChangeLocation,
+  onOpenMap,
+  selectedCoordinate,
+  onClearCoordinate,
+  locationError,
+  isMapModalVisible,
+  dateFound,
+  onDatePress,
+  onClearDate,
+  formatDateForDisplay,
+}: LocationAndDateRowProps) {
+  return (
+    <View style={styles.formSectionGroup}>
+      <View style={styles.formSection}>
+        <Text style={styles.label}>Location found</Text>
+        <TextInput
+          value={locationFound}
+          onChangeText={onChangeLocation}
+          style={styles.input}
+          placeholder="Where was it found?"
+          placeholderTextColor={placeholderColor}
+        />
+        <TouchableOpacity
+          style={styles.mapTrigger}
+          onPress={onOpenMap}
+          activeOpacity={0.85}
+        >
+          <View style={styles.mapTriggerIconWrapper}>
+            <Ionicons
+              name="location-outline"
+              size={18}
+              color={palette.primary}
+            />
+          </View>
+          <View style={styles.mapTriggerContent}>
+            <Text style={styles.mapTriggerTitle}>
+              {selectedCoordinate
+                ? "Update map location"
+                : "Select location on map"}
+            </Text>
+            <Text style={styles.mapTriggerSubtitle}>
+              {selectedCoordinate
+                ? `Lat ${selectedCoordinate.latitude.toFixed(5)}, Lon ${selectedCoordinate.longitude.toFixed(5)}`
+                : "Tap to drop a pin"}
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={18}
+            color={palette.textSecondary}
+          />
+        </TouchableOpacity>
+        {selectedCoordinate ? (
+          <TouchableOpacity
+            onPress={onClearCoordinate}
+            hitSlop={8}
+            style={styles.mapTriggerClear}
+          >
+            <Ionicons
+              name="close-circle"
+              size={16}
+              color={palette.textSecondary}
+            />
+            <Text style={styles.mapTriggerClearText}>Remove pin</Text>
+          </TouchableOpacity>
+        ) : null}
+        {locationError && !isMapModalVisible ? (
+          <Text style={styles.mapErrorText}>{locationError}</Text>
+        ) : null}
+      </View>
+
+      <View style={styles.formSection}>
+        <View style={styles.fieldHeader}>
+          <Text style={styles.label}>Date found</Text>
+          {dateFound ? (
+            <TouchableOpacity onPress={onClearDate} hitSlop={8}>
+              <Text style={styles.clearAction}>Clear</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        <TouchableOpacity
+          style={styles.dateInput}
+          onPress={onDatePress}
+          activeOpacity={0.85}
+        >
+          <Ionicons
+            name="calendar-outline"
+            size={18}
+            color={palette.textSecondary}
+          />
+          <Text style={dateFound ? styles.dateValue : styles.datePlaceholder}>
+            {formatDateForDisplay(dateFound)}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+type CategorySectionProps = {
+  styles: ReportLostItemStyles;
+  palette: Palette;
+  selectedCategory: ItemCategory | null;
+  onSelectCategory: (value: ItemCategory) => void;
+};
+
+function CategorySection({
+  styles,
+  palette,
+  selectedCategory,
+  onSelectCategory,
+}: CategorySectionProps) {
+  return (
+    <View style={styles.formSection}>
+      <Text style={styles.label}>Category *</Text>
+      <View style={styles.categoryGrid}>
+        {CATEGORY_OPTIONS.map((option) => {
+          const isActive = selectedCategory === option.value;
+          return (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.categoryCard,
+                isActive && styles.categoryCardActive,
+              ]}
+              onPress={() => onSelectCategory(option.value)}
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name={option.icon as any}
+                size={20}
+                color={isActive ? palette.surface : palette.primary}
+              />
+              <Text
+                style={[
+                  styles.categoryLabel,
+                  isActive && styles.categoryLabelActive,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+type PhotosSectionProps = {
+  styles: ReportLostItemStyles;
+  palette: Palette;
+  images: string[];
+  onAddImage: () => void;
+  onRemoveImage: (uri: string) => void;
+};
+
+function PhotosSection({
+  styles,
+  palette,
+  images,
+  onAddImage,
+  onRemoveImage,
+}: PhotosSectionProps) {
+  return (
+    <View style={styles.formSection}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.label}>Photos</Text>
+        <Text style={styles.hint}>{images.length}/5 attached</Text>
+      </View>
+      <View style={styles.imageGrid}>
+        {images.map((uri) => (
+          <View key={uri} style={styles.imageWrapper}>
+            <Image
+              source={{ uri }}
+              style={styles.imagePreview}
+              contentFit="cover"
+            />
+            <TouchableOpacity
+              style={styles.removeImageButton}
+              onPress={() => onRemoveImage(uri)}
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={16} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        ))}
+        {images.length < 5 ? (
+          <TouchableOpacity
+            style={styles.addImageButton}
+            onPress={onAddImage}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="image-outline" size={24} color={palette.primary} />
+            <Text style={styles.addImageLabel}>Add photos</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+type ErrorBannerProps = {
+  styles: ReportLostItemStyles;
+  message: string | null;
+};
+
+function ErrorBanner({ styles, message }: ErrorBannerProps) {
+  if (!message) {
+    return null;
+  }
+
+  return <Text style={styles.errorText}>{message}</Text>;
+}
+
+type SubmitButtonProps = {
+  styles: ReportLostItemStyles;
+  isSubmitting: boolean;
+  onSubmit: () => void;
+};
+
+function SubmitButton({ styles, isSubmitting, onSubmit }: SubmitButtonProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+      activeOpacity={0.9}
+      onPress={onSubmit}
+      disabled={isSubmitting}
+    >
+      {isSubmitting ? (
+        <ActivityIndicator color="#fff" />
+      ) : (
+        <Text style={styles.submitButtonLabel}>Submit report</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
 
 type ImagePickerSheetProps = {
   visible: boolean;
@@ -858,6 +1351,167 @@ function ImagePickerSheet({
           </TouchableOpacity>
         </Pressable>
       </Pressable>
+    </Modal>
+  );
+}
+
+type IosDatePickerModalProps = {
+  visible: boolean;
+  iosDateDraft: Date;
+  today: Date;
+  scheme: "light" | "dark";
+  onCancel: () => void;
+  onConfirm: () => void;
+  onChange: (date: Date) => void;
+  styles: ReportLostItemStyles;
+};
+
+function IosDatePickerModal({
+  visible,
+  iosDateDraft,
+  today,
+  scheme,
+  onCancel,
+  onConfirm,
+  onChange,
+  styles,
+}: IosDatePickerModalProps) {
+  return (
+    <Modal
+      transparent
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onCancel}
+    >
+      <Pressable style={styles.pickerOverlay} onPress={onCancel}>
+        <View style={styles.iosDateSheet}>
+          <View style={styles.iosDateToolbar}>
+            <TouchableOpacity onPress={onCancel} hitSlop={12}>
+              <Text style={styles.iosDateButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onConfirm} hitSlop={12}>
+              <Text style={styles.iosDateButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          <DateTimePicker
+            value={iosDateDraft}
+            mode="date"
+            display="spinner"
+            maximumDate={today}
+            textColor={scheme === "dark" ? "#fff" : undefined}
+            onChange={(_event, selectedDate) => {
+              if (selectedDate) {
+                onChange(selectedDate);
+              }
+            }}
+          />
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+type MapLocationModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  styles: ReportLostItemStyles;
+  palette: Palette;
+  mapRef: React.MutableRefObject<MapView | null>;
+  mapRegion: Region;
+  hasLocationPermission: boolean;
+  selectedCoordinate: LatLng | null;
+  onPressMap: (event: MapPressEvent) => void;
+  isLocating: boolean;
+  onConfirm: () => void;
+  locationError: string | null;
+};
+
+function MapLocationModal({
+  visible,
+  onClose,
+  styles,
+  palette,
+  mapRef,
+  mapRegion,
+  hasLocationPermission,
+  selectedCoordinate,
+  onPressMap,
+  isLocating,
+  onConfirm,
+  locationError,
+}: MapLocationModalProps) {
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={onClose}
+      presentationStyle="fullScreen"
+    >
+      <SafeAreaView style={styles.mapModalSafeArea}>
+        <View style={styles.mapModalHeader}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.mapModalClose}
+            hitSlop={12}
+          >
+            <Ionicons name="close" size={22} color={palette.text} />
+          </TouchableOpacity>
+          <Text style={styles.mapModalTitle}>Drop a pin</Text>
+          <View style={{ width: 32 }} />
+        </View>
+        <View style={styles.mapModalBody}>
+          <MapView
+            ref={(ref) => {
+              mapRef.current = ref;
+            }}
+            style={styles.mapModalMap}
+            initialRegion={mapRegion}
+            provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+            showsUserLocation={hasLocationPermission}
+            showsMyLocationButton={
+              Platform.OS === "android" && hasLocationPermission
+            }
+            onPress={onPressMap}
+          >
+            {selectedCoordinate ? (
+              <Marker coordinate={selectedCoordinate} />
+            ) : null}
+          </MapView>
+          {isLocating ? (
+            <View style={styles.mapOverlay} pointerEvents="none">
+              <ActivityIndicator color={palette.primary} />
+              <Text style={styles.mapLoadingText}>Centering map…</Text>
+            </View>
+          ) : null}
+        </View>
+        <View style={styles.mapModalFooter}>
+          <TouchableOpacity
+            style={styles.mapModalSecondary}
+            onPress={onClose}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.mapModalSecondaryText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.mapModalPrimary,
+              !selectedCoordinate && styles.mapModalPrimaryDisabled,
+            ]}
+            onPress={onConfirm}
+            activeOpacity={0.85}
+            disabled={!selectedCoordinate}
+          >
+            <Text style={styles.mapModalPrimaryText}>Use this location</Text>
+          </TouchableOpacity>
+        </View>
+        {locationError ? (
+          <Text style={styles.mapModalError}>{locationError}</Text>
+        ) : (
+          <Text style={styles.mapModalHint}>
+            Tap anywhere on the map to drop or reposition the pin.
+          </Text>
+        )}
+      </SafeAreaView>
     </Modal>
   );
 }
