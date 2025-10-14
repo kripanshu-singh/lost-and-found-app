@@ -13,6 +13,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="screens/auth/Login" />
             <Stack.Screen name="screens/home/Landing" />
+            <Stack.Screen name="screens/home/ReportLostItem" />
             <Stack.Screen name="screens/auth/Register" />
           </Stack>
         </AuthProvider>

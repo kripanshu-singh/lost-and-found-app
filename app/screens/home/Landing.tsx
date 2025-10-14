@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   Alert,
@@ -16,6 +17,7 @@ import { useAuth } from "../../../src/auth/AuthProvider";
 import { ThemePreference, useAppTheme } from "../../../src/theme";
 
 export default function Landing() {
+  const router = useRouter();
   const { palette, scheme, preference, setPreference } = useAppTheme();
   const { session, logout } = useAuth();
   const [isMenuVisible, setMenuVisible] = useState(false);
@@ -121,7 +123,11 @@ export default function Landing() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionGrid}>
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => router.push("/screens/home/ReportLostItem")}
+              activeOpacity={0.85}
+            >
               <View
                 style={[styles.actionIcon, { backgroundColor: palette.accent }]}
               >
