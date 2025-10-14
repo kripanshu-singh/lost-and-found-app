@@ -1,4 +1,4 @@
-import { httpClient } from "./httpClient";
+import { httpClient, type HttpRequestConfig } from "./httpClient";
 
 export interface RegisterPayload {
     name: string;
@@ -41,6 +41,19 @@ export interface LoginResponse {
     success: boolean;
     message: string;
     data?: LoginResponseData | Record<string, unknown>;
+    error?: string;
+}
+
+export type RefreshResponseData = LoginResponseData;
+
+export interface RefreshPayload {
+    refreshToken: string;
+}
+
+export interface RefreshResponse {
+    success: boolean;
+    message: string;
+    data?: RefreshResponseData | Record<string, unknown>;
     error?: string;
 }
 
@@ -96,6 +109,19 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
             "Content-Type": "application/json",
         },
     });
+
+    return response.data;
+}
+
+export async function refreshTokens(payload: RefreshPayload): Promise<RefreshResponse> {
+    const config: HttpRequestConfig = {
+        headers: {
+            "Content-Type": "application/json",
+        },
+        skipAuth: true,
+    };
+
+    const response = await httpClient.post<RefreshResponse>("/api/auth/refresh", payload, config);
 
     return response.data;
 }

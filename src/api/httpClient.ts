@@ -2,6 +2,7 @@ import axios, {
     AxiosError,
     AxiosHeaders,
     AxiosInstance,
+    AxiosRequestConfig,
     AxiosResponse,
     InternalAxiosRequestConfig,
     isAxiosError,
@@ -12,12 +13,16 @@ const DEFAULT_TIMEOUT = 180000;
 
 type RequestConfig = InternalAxiosRequestConfig & {
     skipAuth?: boolean;
+    _retry?: boolean;
 };
 
 type ErrorListener = (error: ApiError) => void;
+type RefreshHandler = () => Promise<{ accessToken: string; refreshToken: string } | null>;
 
 const errorListeners = new Set<ErrorListener>();
 let accessToken: string | null = null;
+let refreshHandler: RefreshHandler | null = null;
+let refreshPromise: Promise<{ accessToken: string; refreshToken: string } | null> | null = null;
 
 export class ApiError extends Error {
     status?: number;
@@ -54,6 +59,15 @@ export function getBaseUrl(): string {
 
 export function setAccessToken(token: string | null) {
     accessToken = token;
+}
+
+export function registerTokenRefreshHandler(handler: RefreshHandler) {
+    refreshHandler = handler;
+    return () => {
+        if (refreshHandler === handler) {
+            refreshHandler = null;
+        }
+    };
 }
 
 export function onApiError(listener: ErrorListener) {
@@ -127,10 +141,50 @@ export function createHttpClient(): AxiosInstance {
 
     instance.interceptors.response.use(
         (response: AxiosResponse) => response,
-        (error: AxiosError) => {
+        async (error: AxiosError) => {
+            const originalRequest = error.config as RequestConfig | undefined;
+            const status = error.response?.status;
+
+            if (
+                status === 401 &&
+                originalRequest &&
+                !originalRequest.skipAuth &&
+                !originalRequest._retry &&
+                refreshHandler
+            ) {
+                try {
+                    if (!refreshPromise) {
+                        refreshPromise = refreshHandler();
+                    }
+
+                    const tokens = await refreshPromise;
+
+                    if (!tokens?.accessToken) {
+                        throw new ApiError("Session expired", { status: 401 });
+                    }
+
+                    const headers = new AxiosHeaders(originalRequest.headers ?? {});
+                    headers.set("Authorization", `Bearer ${tokens.accessToken}`);
+
+                    originalRequest.headers = headers;
+                    originalRequest._retry = true;
+
+                    return instance(originalRequest);
+                } catch (refreshError) {
+                    const apiRefreshError =
+                        refreshError instanceof ApiError
+                            ? refreshError
+                            : normalizeError(refreshError);
+                    notifyError(apiRefreshError);
+                    throw apiRefreshError;
+                } finally {
+                    refreshPromise = null;
+                }
+            }
+
             const apiError = normalizeError(error);
             notifyError(apiError);
-            return Promise.reject(apiError);
+            throw apiError;
         },
     );
 
@@ -138,3 +192,5 @@ export function createHttpClient(): AxiosInstance {
 }
 
 export const httpClient = createHttpClient();
+
+export type HttpRequestConfig = AxiosRequestConfig & { skipAuth?: boolean };

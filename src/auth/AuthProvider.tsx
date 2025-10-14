@@ -6,6 +6,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -16,6 +17,8 @@ import {
   saveSession,
   SessionError,
 } from "../api/session";
+import { refreshTokens, type RefreshResponseData } from "../api/auth";
+import { ApiError, registerTokenRefreshHandler } from "../api/httpClient";
 import { useAppTheme } from "../theme";
 
 interface AuthContextValue {
@@ -31,6 +34,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<AuthSession | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
+  const sessionRef = useRef<AuthSession | null>(null);
   const segments = useSegments();
   const router = useRouter();
   const { palette } = useAppTheme();
@@ -43,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const existing = await loadSession();
         if (isMounted) {
           setSessionState(existing);
+          sessionRef.current = existing;
         }
       } catch (error) {
         if (__DEV__) {
@@ -81,18 +86,99 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const persistSession = useCallback(async (next: AuthSession) => {
     await saveSession(next);
     setSessionState(next);
+    sessionRef.current = next;
   }, []);
 
   const clearSession = useCallback(async () => {
     await clearPersistedSession();
     setSessionState(null);
+    sessionRef.current = null;
+  }, []);
+
+  const performRefresh = useCallback(async () => {
+    let current = sessionRef.current;
+
+    if (!current) {
+      try {
+        current = await loadSession();
+        sessionRef.current = current;
+      } catch (error) {
+        throw error;
+      }
+    }
+
+    if (!current?.refreshToken) {
+      return null;
+    }
+
+    try {
+      const response = await refreshTokens({ refreshToken: current.refreshToken });
+      const refreshData =
+        response.data &&
+        !Array.isArray(response.data) &&
+        typeof response.data === "object" &&
+        "accessToken" in response.data &&
+        "refreshToken" in response.data
+          ? (response.data as RefreshResponseData)
+          : null;
+
+      if (!response.success || !refreshData) {
+        throw new ApiError(response.message || "Unable to refresh session", {
+          status: 401,
+          data: response.data,
+        });
+      }
+
+      const updatedSession: AuthSession = {
+        accessToken: refreshData.accessToken,
+        refreshToken: refreshData.refreshToken,
+        userId: typeof refreshData.userId === "number" ? refreshData.userId : current.userId,
+        name: typeof refreshData.name === "string" ? refreshData.name : current.name,
+        email: typeof refreshData.email === "string" ? refreshData.email : current.email,
+        profilePhoto:
+          typeof refreshData.profilePhoto === "string"
+            ? refreshData.profilePhoto
+            : current.profilePhoto ?? null,
+      };
+
+      await saveSession(updatedSession);
+      sessionRef.current = updatedSession;
+      setSessionState(updatedSession);
+      return updatedSession;
+    } catch (error) {
+      const normalized =
+        error instanceof ApiError
+          ? error
+          : new ApiError("Unable to refresh session", { cause: error });
+
+      if (normalized.status === 401) {
+        await clearPersistedSession();
+        sessionRef.current = null;
+        setSessionState(null);
+      }
+
+      throw normalized;
+    }
   }, []);
 
   const refreshSession = useCallback(async () => {
-    const refreshed = await loadSession();
-    setSessionState(refreshed);
-    return refreshed;
-  }, []);
+    return performRefresh();
+  }, [performRefresh]);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
+    const unregister = registerTokenRefreshHandler(async () => {
+      const refreshed = await performRefresh();
+      return refreshed
+        ? { accessToken: refreshed.accessToken, refreshToken: refreshed.refreshToken }
+        : null;
+    });
+
+    return unregister;
+  }, [performRefresh]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
