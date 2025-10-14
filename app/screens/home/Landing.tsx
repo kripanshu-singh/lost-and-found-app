@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useAppTheme } from "../../theme";
+import { useAppTheme } from "../../../src/theme";
 
 export default function Landing() {
   const router = useRouter();

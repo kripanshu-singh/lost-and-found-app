@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   ImageBackground,
   Keyboard,
   KeyboardAvoidingView,
@@ -16,14 +17,19 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Palette, useAppTheme } from "../../theme";
+import { loginUser, type LoginResponseData } from "../../../src/api/auth";
+import { ApiError } from "../../../src/api/httpClient";
+import { saveSession, SessionError } from "../../../src/api/session";
+import { Palette, useAppTheme } from "../../../src/theme";
 
 const Login = () => {
   const router = useRouter();
   const { palette, scheme } = useAppTheme();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const styles = useMemo(
     () => createStyles(palette, scheme),
@@ -41,10 +47,89 @@ const Login = () => {
     () => (scheme === "dark" ? palette.textSecondary : "rgba(0,0,0,0.45)"),
     [palette.textSecondary, scheme],
   );
-  const handleLogin = () => {
-    // Hook up authentication flow here when backend is ready.
-    // For now, navigate to Landing screen
-    router.replace("/screens/home/Landing");
+  const collectFieldErrors = (data: unknown) => {
+    if (!data || Array.isArray(data) || typeof data !== "object") {
+      return null;
+    }
+
+    const values = Object.values(data as Record<string, unknown>).flatMap(
+      (value) => {
+        if (typeof value === "string") {
+          return value;
+        }
+        if (Array.isArray(value)) {
+          return value.filter((item) => typeof item === "string") as string[];
+        }
+        return [];
+      },
+    );
+
+    return values.length > 0 ? values.join("\n") : null;
+  };
+
+  const handleLogin = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+
+    if (trimmedEmail !== email) {
+      setEmail(trimmedEmail);
+    }
+
+    if (!trimmedEmail || !trimmedPassword) {
+      setErrorMessage("Enter both email and password to continue.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await loginUser({
+        email: trimmedEmail,
+        password: trimmedPassword,
+      });
+
+      const loginData =
+        response.data &&
+        !Array.isArray(response.data) &&
+        typeof response.data === "object" &&
+        "accessToken" in response.data
+          ? (response.data as LoginResponseData)
+          : null;
+
+      if (!response.success || !loginData) {
+        const fieldErrors = collectFieldErrors(response.data);
+        setErrorMessage(
+          fieldErrors || response.message || "We could not sign you in.",
+        );
+        return;
+      }
+
+      await saveSession({
+        accessToken: loginData.accessToken,
+        refreshToken: loginData.refreshToken,
+        userId: loginData.userId,
+        name: loginData.name,
+        email: loginData.email,
+        profilePhoto: loginData.profilePhoto ?? null,
+      });
+      setPassword("");
+      router.replace("/screens/home/Landing");
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof SessionError
+            ? "We couldn't save your session securely. Please ensure device security is available and try again."
+            : "We were unable to contact the server. Please try again.";
+      setErrorMessage(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleForgotPassword = () => {
@@ -52,6 +137,9 @@ const Login = () => {
   };
 
   const handleCreateAccount = () => {
+    if (isSubmitting) {
+      return;
+    }
     router.push("/screens/auth/Register");
   };
 
@@ -88,24 +176,24 @@ const Login = () => {
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  value={username}
-                  onChangeText={setUsername}
+                  value={email}
+                  onChangeText={setEmail}
                   placeholder="Email"
                   placeholderTextColor={placeholderColor}
                   style={styles.input}
                   autoCapitalize="none"
                   keyboardType="email-address"
                 />
-                {username.length > 0 && (
+                {email.length > 0 && (
                   <TouchableOpacity
-                    onPress={() => setUsername("")}
+                    onPress={() => setEmail("")}
                     style={styles.inputAction}
                     hitSlop={8}
                   >
                     <Ionicons
                       name="close-circle"
                       size={18}
-                      color="rgba(0,0,0,0.35)"
+                      color={actionIconColor}
                     />
                   </TouchableOpacity>
                 )}
@@ -141,13 +229,29 @@ const Login = () => {
               </View>
 
               <TouchableOpacity
-                style={styles.loginButton}
+                style={[
+                  styles.loginButton,
+                  isSubmitting && styles.loginButtonDisabled,
+                ]}
                 onPress={handleLogin}
+                activeOpacity={0.85}
+                disabled={isSubmitting}
               >
-                <Text style={styles.loginButtonText}>Log in</Text>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.loginButtonText}>Log in</Text>
+                )}
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={handleForgotPassword}>
+              {errorMessage && (
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              )}
+
+              <TouchableOpacity
+                onPress={handleForgotPassword}
+                disabled={isSubmitting}
+              >
                 <Text style={styles.forgotPassword}>Forgot password?</Text>
               </TouchableOpacity>
             </View>
@@ -236,10 +340,18 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       shadowRadius: 12,
       elevation: 4,
     },
+    loginButtonDisabled: {
+      opacity: 0.65,
+    },
     loginButtonText: {
       color: "#fff",
       fontSize: 16,
       fontWeight: "600",
+    },
+    errorText: {
+      color: "#ff4d4f",
+      textAlign: "center",
+      fontSize: 14,
     },
     forgotPassword: {
       textAlign: "center",

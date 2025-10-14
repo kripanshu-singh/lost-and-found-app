@@ -19,9 +19,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { registerUser } from "../../api/auth";
-import { ApiError } from "../../api/httpClient";
-import { Palette, useAppTheme } from "../../theme";
+import { registerUser } from "../../../src/api/auth";
+import { ApiError } from "../../../src/api/httpClient";
+import { Palette, useAppTheme } from "../../../src/theme";
 
 const Register = () => {
   const router = useRouter();

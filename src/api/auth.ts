@@ -22,6 +22,28 @@ export interface RegisterResponse {
     error?: string;
 }
 
+export interface LoginPayload {
+    email: string;
+    password: string;
+}
+
+export interface LoginResponseData {
+    accessToken: string;
+    refreshToken: string;
+    userId: number;
+    name: string;
+    email: string;
+    profilePhoto?: string | null;
+    [key: string]: unknown;
+}
+
+export interface LoginResponse {
+    success: boolean;
+    message: string;
+    data?: LoginResponseData | Record<string, unknown>;
+    error?: string;
+}
+
 function extractFileName(uri: string) {
     const segments = uri.split(/[/\\]/);
     const lastSegment = segments.pop() ?? "profilePhoto";
@@ -62,6 +84,16 @@ export async function registerUser(payload: RegisterPayload): Promise<RegisterRe
     const response = await httpClient.post<RegisterResponse>("/api/users/register", formData, {
         headers: {
             "Content-Type": "multipart/form-data",
+        },
+    });
+
+    return response.data;
+}
+
+export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
+    const response = await httpClient.post<LoginResponse>("/api/auth/login", payload, {
+        headers: {
+            "Content-Type": "application/json",
         },
     });
 

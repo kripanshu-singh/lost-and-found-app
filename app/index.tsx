@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useMemo } from "react";
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Palette, useAppTheme } from "./theme";
+import { Palette, useAppTheme } from "../src/theme";
 
 export default function Index() {
   const router = useRouter();

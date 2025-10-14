@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
+import { ThemeProvider } from "../src/theme";
 import "./global.css";
-import { ThemeProvider } from "./theme";
 
 export default function RootLayout() {
   return (
