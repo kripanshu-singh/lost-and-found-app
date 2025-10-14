@@ -17,7 +17,7 @@ import { ThemePreference, useAppTheme } from "../../../src/theme";
 
 export default function Landing() {
   const { palette, scheme, preference, setPreference } = useAppTheme();
-  const { session, clearSession } = useAuth();
+  const { session, logout } = useAuth();
   const [isMenuVisible, setMenuVisible] = useState(false);
   const styles = useMemo(
     () => createStyles(palette, scheme),
@@ -67,7 +67,7 @@ export default function Landing() {
 
   const handleLogout = async () => {
     try {
-      await clearSession();
+      await logout();
     } finally {
       setMenuVisible(false);
     }

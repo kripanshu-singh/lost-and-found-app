@@ -18,7 +18,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { loginUser, type LoginResponseData } from "../../../src/api/auth";
-import { ApiError } from "../../../src/api/httpClient";
+import { ApiError, setAccessToken } from "../../../src/api/httpClient";
+import {
+  getCurrentUser,
+  type CurrentUserResponseData,
+} from "../../../src/api/users";
 import { SessionError } from "../../../src/api/session";
 import { useAuth } from "../../../src/auth/AuthProvider";
 import { Palette, useAppTheme } from "../../../src/theme";
@@ -111,17 +115,56 @@ const Login = () => {
         return;
       }
 
+      setAccessToken(loginData.accessToken);
+
+      let currentUser: CurrentUserResponseData;
+
+      try {
+        const meResponse = await getCurrentUser();
+        const meData =
+          meResponse.success &&
+          meResponse.data &&
+          !Array.isArray(meResponse.data) &&
+          typeof meResponse.data === "object"
+            ? (meResponse.data as CurrentUserResponseData)
+            : null;
+
+        if (
+          !meResponse.success ||
+          !meData ||
+          typeof meData.userId !== "number" ||
+          typeof meData.name !== "string" ||
+          typeof meData.email !== "string"
+        ) {
+          throw new ApiError(
+            meResponse.message || "Unable to load your account",
+            { data: meResponse.data },
+          );
+        }
+
+        currentUser = meData;
+      } catch (error) {
+        setAccessToken(null);
+        throw error instanceof ApiError
+          ? error
+          : new ApiError("Unable to load your account", { cause: error });
+      }
+
       await persistSession({
         accessToken: loginData.accessToken,
         refreshToken: loginData.refreshToken,
-        userId: loginData.userId,
-        name: loginData.name,
-        email: loginData.email,
-        profilePhoto: loginData.profilePhoto ?? null,
+        userId: currentUser.userId,
+        name: currentUser.name,
+        email: currentUser.email,
+        profilePhoto:
+          typeof currentUser.profilePhoto === "string"
+            ? currentUser.profilePhoto
+            : null,
       });
       setPassword("");
       router.replace("/screens/home/Landing");
     } catch (error) {
+      setAccessToken(null);
       const message =
         error instanceof ApiError
           ? error.message

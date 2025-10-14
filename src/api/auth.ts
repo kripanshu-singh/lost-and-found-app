@@ -44,7 +44,10 @@ export interface LoginResponse {
     error?: string;
 }
 
-export type RefreshResponseData = LoginResponseData;
+export interface RefreshResponseData {
+    accessToken: string;
+    refreshToken: string;
+}
 
 export interface RefreshPayload {
     refreshToken: string;
@@ -54,6 +57,16 @@ export interface RefreshResponse {
     success: boolean;
     message: string;
     data?: RefreshResponseData | Record<string, unknown>;
+    error?: string;
+}
+
+export interface LogoutPayload {
+    refreshToken: string;
+}
+
+export interface LogoutResponse {
+    success: boolean;
+    message: string;
     error?: string;
 }
 
@@ -122,6 +135,19 @@ export async function refreshTokens(payload: RefreshPayload): Promise<RefreshRes
     };
 
     const response = await httpClient.post<RefreshResponse>("/api/auth/refresh", payload, config);
+
+    return response.data;
+}
+
+export async function logoutUser(payload: LogoutPayload): Promise<LogoutResponse> {
+    const config: HttpRequestConfig = {
+        headers: {
+            "Content-Type": "application/json",
+        },
+        skipAuth: true,
+    };
+
+    const response = await httpClient.post<LogoutResponse>("/api/auth/logout", payload, config);
 
     return response.data;
 }

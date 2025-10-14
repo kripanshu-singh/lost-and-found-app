@@ -10,8 +10,16 @@ import React, {
   useState,
 } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { refreshTokens, type RefreshResponseData } from "../api/auth";
-import { ApiError, registerTokenRefreshHandler } from "../api/httpClient";
+import {
+  logoutUser,
+  refreshTokens,
+  type RefreshResponseData,
+} from "../api/auth";
+import {
+  ApiError,
+  registerTokenRefreshHandler,
+  setAccessToken,
+} from "../api/httpClient";
 import {
   AuthSession,
   clearSession as clearPersistedSession,
@@ -19,6 +27,7 @@ import {
   saveSession,
   SessionError,
 } from "../api/session";
+import { getCurrentUser, type CurrentUserResponseData } from "../api/users";
 import { useAppTheme } from "../theme";
 
 interface AuthContextValue {
@@ -26,6 +35,7 @@ interface AuthContextValue {
   isHydrating: boolean;
   setSession(session: AuthSession): Promise<void>;
   clearSession(): Promise<void>;
+  logout(): Promise<void>;
   refreshSession(): Promise<AuthSession | null>;
 }
 
@@ -95,6 +105,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionRef.current = null;
   }, []);
 
+  const logout = useCallback(async () => {
+    const refreshToken = sessionRef.current?.refreshToken;
+
+    try {
+      if (__DEV__) {
+        console.log("auth-logout: start", {
+          hasRefreshToken: Boolean(refreshToken),
+        });
+      }
+
+      if (refreshToken) {
+        if (__DEV__) {
+          console.log("auth-logout: sending request");
+        }
+        await logoutUser({ refreshToken });
+      }
+    } catch (error) {
+      if (__DEV__) {
+        console.warn("auth-logout: request failed", error);
+      }
+    } finally {
+      if (__DEV__) {
+        console.log("auth-logout: clearing session");
+      }
+      await clearSession();
+      if (__DEV__) {
+        console.log("auth-logout: complete");
+      }
+    }
+  }, [clearSession]);
+
   const performRefresh = useCallback(async () => {
     let current = sessionRef.current;
 
@@ -110,6 +151,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!current?.refreshToken) {
       return null;
     }
+
+  const previousAccessToken = current?.accessToken ?? null;
 
     try {
       const response = await refreshTokens({
@@ -131,31 +174,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      const updatedSession: AuthSession = {
+      setAccessToken(refreshData.accessToken);
+
+      const meResponse = await getCurrentUser();
+      const meData =
+        meResponse.success &&
+        meResponse.data &&
+        !Array.isArray(meResponse.data) &&
+        typeof meResponse.data === "object"
+          ? (meResponse.data as CurrentUserResponseData)
+          : null;
+
+      if (
+        !meResponse.success ||
+        !meData ||
+        typeof meData.userId !== "number" ||
+        typeof meData.name !== "string" ||
+        typeof meData.email !== "string"
+      ) {
+        throw new ApiError(
+          meResponse.message || "Unable to load account details",
+          {
+            data: meResponse.data,
+          },
+        );
+      }
+
+      const normalizedSession: AuthSession = {
         accessToken: refreshData.accessToken,
         refreshToken: refreshData.refreshToken,
-        userId:
-          typeof refreshData.userId === "number"
-            ? refreshData.userId
-            : current.userId,
-        name:
-          typeof refreshData.name === "string"
-            ? refreshData.name
-            : current.name,
-        email:
-          typeof refreshData.email === "string"
-            ? refreshData.email
-            : current.email,
+        userId: meData.userId,
+        name: meData.name,
+        email: meData.email,
         profilePhoto:
-          typeof refreshData.profilePhoto === "string"
-            ? refreshData.profilePhoto
-            : (current.profilePhoto ?? null),
+          typeof meData.profilePhoto === "string"
+            ? meData.profilePhoto
+            : null,
       };
 
-      await saveSession(updatedSession);
-      sessionRef.current = updatedSession;
-      setSessionState(updatedSession);
-      return updatedSession;
+      await saveSession(normalizedSession);
+      sessionRef.current = normalizedSession;
+      setSessionState(normalizedSession);
+      return normalizedSession;
     } catch (error) {
       const normalized =
         error instanceof ApiError
@@ -166,6 +226,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearPersistedSession();
         sessionRef.current = null;
         setSessionState(null);
+        setAccessToken(null);
+      } else {
+        setAccessToken(previousAccessToken);
       }
 
       throw normalized;
@@ -200,9 +263,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isHydrating,
       setSession: persistSession,
       clearSession,
+      logout,
       refreshSession,
     }),
-    [clearSession, isHydrating, persistSession, refreshSession, session],
+    [
+      clearSession,
+      isHydrating,
+      logout,
+      persistSession,
+      refreshSession,
+      session,
+    ],
   );
 
   if (isHydrating) {
