@@ -1,6 +1,20 @@
-import React, { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter, useSegments } from "expo-router";
-import { AuthSession, clearSession as clearPersistedSession, loadSession, saveSession, SessionError } from "../api/session";
+import React, {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  AuthSession,
+  clearSession as clearPersistedSession,
+  loadSession,
+  saveSession,
+  SessionError,
+} from "../api/session";
 
 interface AuthContextValue {
   session: AuthSession | null;
@@ -78,7 +92,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ session, isHydrating, setSession: persistSession, clearSession, refreshSession }),
+    () => ({
+      session,
+      isHydrating,
+      setSession: persistSession,
+      clearSession,
+      refreshSession,
+    }),
     [clearSession, isHydrating, persistSession, refreshSession, session],
   );
 
