@@ -25,6 +25,7 @@ import MapView, {
   Marker,
   PROVIDER_GOOGLE,
   type MapPressEvent,
+  type MapType,
   type Region,
 } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -49,11 +50,13 @@ const CATEGORY_OPTIONS: {
   { label: "Other", value: "OTHER", icon: "ellipse-outline" },
 ];
 
+const MAP_FOCUS_DELTA = 0.005;
+
 const DEFAULT_REGION: Region = {
   latitude: 25.8318,
   longitude: 82.68242,
-  latitudeDelta: 0.015,
-  longitudeDelta: 0.015,
+  latitudeDelta: MAP_FOCUS_DELTA,
+  longitudeDelta: MAP_FOCUS_DELTA,
 };
 
 type LatLng = {
@@ -71,6 +74,7 @@ export default function ReportLostItem() {
 
   const mapRef = useRef<MapView | null>(null);
   const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
+  const [mapType, setMapType] = useState<MapType>("standard");
   const [selectedCoordinate, setSelectedCoordinate] = useState<LatLng | null>(
     null,
   );
@@ -132,8 +136,8 @@ export default function ReportLostItem() {
       ? {
           latitude: selectedCoordinate.latitude,
           longitude: selectedCoordinate.longitude,
-          latitudeDelta: 0.008,
-          longitudeDelta: 0.008,
+          latitudeDelta: MAP_FOCUS_DELTA,
+          longitudeDelta: MAP_FOCUS_DELTA,
         }
       : mapRegion;
 
@@ -147,13 +151,17 @@ export default function ReportLostItem() {
       longitude: Number(coordinate.longitude.toFixed(6)),
     };
     setSelectedCoordinate(normalized);
-    setMapRegion((prev) => ({
+    setMapRegion(() => ({
       latitude: normalized.latitude,
       longitude: normalized.longitude,
-      latitudeDelta: prev?.latitudeDelta ?? 0.01,
-      longitudeDelta: prev?.longitudeDelta ?? 0.01,
+      latitudeDelta: MAP_FOCUS_DELTA,
+      longitudeDelta: MAP_FOCUS_DELTA,
     }));
     setLocationError(null);
+  };
+
+  const toggleMapType = () => {
+    setMapType((prev) => (prev === "hybrid" ? "standard" : "hybrid"));
   };
 
   const clearSelectedCoordinate = () => {
@@ -187,8 +195,8 @@ export default function ReportLostItem() {
       const nextRegion: Region = {
         latitude: current.coords.latitude,
         longitude: current.coords.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+        latitudeDelta: MAP_FOCUS_DELTA,
+        longitudeDelta: MAP_FOCUS_DELTA,
       };
 
       setMapRegion(nextRegion);
@@ -533,12 +541,14 @@ export default function ReportLostItem() {
         palette={palette}
         mapRef={mapRef}
         mapRegion={mapRegion}
+        mapType={mapType}
         hasLocationPermission={hasLocationPermission}
         selectedCoordinate={selectedCoordinate}
         onPressMap={handleMapPress}
         isLocating={isLocating}
         onConfirm={handleConfirmLocation}
         locationError={locationError}
+        onToggleMapType={toggleMapType}
       />
     </SafeAreaView>
   );
@@ -874,9 +884,26 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       marginBottom: 12,
     },
     mapModalTitle: {
+      flex: 1,
       fontSize: 18,
       fontWeight: "700",
       color: palette.text,
+      textAlign: "center",
+    },
+    mapModeToggle: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 12,
+      backgroundColor:
+        scheme === "dark" ? "rgba(31,45,61,0.4)" : "rgba(229,240,255,0.85)",
+    },
+    mapModeToggleLabel: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: palette.primary,
     },
     mapModalClose: {
       width: 32,
@@ -1418,12 +1445,14 @@ type MapLocationModalProps = {
   palette: Palette;
   mapRef: React.MutableRefObject<MapView | null>;
   mapRegion: Region;
+  mapType: MapType;
   hasLocationPermission: boolean;
   selectedCoordinate: LatLng | null;
   onPressMap: (event: MapPressEvent) => void;
   isLocating: boolean;
   onConfirm: () => void;
   locationError: string | null;
+  onToggleMapType: () => void;
 };
 
 function MapLocationModal({
@@ -1433,12 +1462,14 @@ function MapLocationModal({
   palette,
   mapRef,
   mapRegion,
+  mapType,
   hasLocationPermission,
   selectedCoordinate,
   onPressMap,
   isLocating,
   onConfirm,
   locationError,
+  onToggleMapType,
 }: MapLocationModalProps) {
   return (
     <Modal
@@ -1457,7 +1488,21 @@ function MapLocationModal({
             <Ionicons name="close" size={22} color={palette.text} />
           </TouchableOpacity>
           <Text style={styles.mapModalTitle}>Drop a pin</Text>
-          <View style={{ width: 32 }} />
+          <TouchableOpacity
+            onPress={onToggleMapType}
+            style={styles.mapModeToggle}
+            hitSlop={8}
+            activeOpacity={0.85}
+          >
+            <Ionicons
+              name={mapType === "hybrid" ? "map-outline" : "earth-outline"}
+              size={16}
+              color={palette.primary}
+            />
+            <Text style={styles.mapModeToggleLabel}>
+              {mapType === "hybrid" ? "Standard view" : "Satellite view"}
+            </Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.mapModalBody}>
           <MapView
@@ -1466,6 +1511,7 @@ function MapLocationModal({
             }}
             style={styles.mapModalMap}
             initialRegion={mapRegion}
+            mapType={mapType}
             provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
             showsUserLocation={hasLocationPermission}
             showsMyLocationButton={

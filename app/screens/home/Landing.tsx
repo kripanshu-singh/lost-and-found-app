@@ -299,44 +299,6 @@ export default function Landing() {
           </Pressable>
         </Pressable>
       </Modal>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={24} color={palette.primary} />
-          <Text style={[styles.navLabel, { color: palette.primary }]}>
-            Home
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons
-            name="search-outline"
-            size={24}
-            color={palette.textSecondary}
-          />
-          <Text style={styles.navLabel}>Search</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="add-circle" size={24} color={palette.textSecondary} />
-          <Text style={styles.navLabel}>Add</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons
-            name="notifications-outline"
-            size={24}
-            color={palette.textSecondary}
-          />
-          <Text style={styles.navLabel}>Alerts</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons
-            name="person-outline"
-            size={24}
-            color={palette.textSecondary}
-          />
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -481,7 +443,7 @@ const createStyles = (palette: any, scheme: "light" | "dark") =>
       flex: 1,
     },
     scrollContent: {
-      paddingBottom: 100,
+      paddingBottom: 32,
     },
     section: {
       marginTop: 24,
@@ -582,36 +544,6 @@ const createStyles = (palette: any, scheme: "light" | "dark") =>
       fontSize: 12,
       color: palette.text,
       textAlign: "center",
-      fontWeight: "500",
-    },
-    bottomNav: {
-      position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      flexDirection: "row",
-      backgroundColor: palette.surface,
-      paddingTop: 12,
-      paddingBottom: 24,
-      paddingHorizontal: 8,
-      borderTopWidth: 1,
-      borderTopColor: palette.border,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: -2 },
-      shadowOpacity: scheme === "dark" ? 0.3 : 0.1,
-      shadowRadius: 8,
-      elevation: 8,
-    },
-    navItem: {
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: 8,
-    },
-    navLabel: {
-      fontSize: 11,
-      color: palette.textSecondary,
-      marginTop: 4,
       fontWeight: "500",
     },
   });
