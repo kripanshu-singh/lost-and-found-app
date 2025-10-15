@@ -13,8 +13,127 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { type LostItemSummary } from "../../../src/api/items";
 import { useAuth } from "../../../src/auth/AuthProvider";
 import { ThemePreference, useAppTheme } from "../../../src/theme";
+import { LostItemCard } from "./components/LostItemCard";
+
+const MOCK_RECENT_ITEMS: LostItemSummary[] = [
+  {
+    id: 5,
+    itemName: "Bobby",
+    description: "Lorem, ipsum dolor.",
+    locationFound: "Library",
+    latitude: 9.0001,
+    longitude: 8.0001,
+    images: [
+      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448231/lost-and-found/items/file_d24ykb.jpg",
+      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448245/lost-and-found/items/file_op6d62.jpg",
+    ],
+    dateFound: "2025-10-14",
+    status: "CLAIMED",
+    category: "PHONE",
+    postedByUserId: 5,
+    claimedByUserId: 1,
+  },
+  {
+    id: 3,
+    itemName: "Ksmsn",
+    description: null,
+    locationFound: null,
+    latitude: null,
+    longitude: null,
+    images: [
+      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448062/lost-and-found/items/file_e3cc9p.jpg",
+      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448065/lost-and-found/items/file_q1dvjt.jpg",
+    ],
+    dateFound: "2025-10-14",
+    status: "AVAILABLE",
+    category: "WALLET",
+    postedByUserId: 5,
+    claimedByUserId: null,
+  },
+  {
+    id: 4,
+    itemName: "Jkendn",
+    description: null,
+    locationFound: null,
+    latitude: null,
+    longitude: null,
+    images: [
+      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448095/lost-and-found/items/file_zhxfph.jpg",
+      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448097/lost-and-found/items/file_cs64hw.jpg",
+    ],
+    dateFound: "2025-10-14",
+    status: "AVAILABLE",
+    category: "OTHER",
+    postedByUserId: 5,
+    claimedByUserId: null,
+  },
+  {
+    id: 8,
+    itemName: "By",
+    description: null,
+    locationFound: null,
+    latitude: null,
+    longitude: null,
+    images: [
+      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448519/lost-and-found/items/file_u3sqvl.jpg",
+    ],
+    dateFound: "2025-10-14",
+    status: "AVAILABLE",
+    category: "WALLET",
+    postedByUserId: 5,
+    claimedByUserId: null,
+  },
+  {
+    id: 6,
+    itemName: "Ved",
+    description: null,
+    locationFound: null,
+    latitude: null,
+    longitude: null,
+    images: [
+      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448458/lost-and-found/items/file_t879cu.jpg",
+    ],
+    dateFound: "2025-10-14",
+    status: "AVAILABLE",
+    category: "OTHER",
+    postedByUserId: 5,
+    claimedByUserId: null,
+  },
+  {
+    id: 7,
+    itemName: "Jesse",
+    description: null,
+    locationFound: null,
+    latitude: null,
+    longitude: null,
+    images: [],
+    dateFound: "2025-10-14",
+    status: "AVAILABLE",
+    category: "WALLET",
+    postedByUserId: 5,
+    claimedByUserId: null,
+  },
+  {
+    id: 2,
+    itemName: "Black bottle",
+    description: null,
+    locationFound: null,
+    latitude: null,
+    longitude: null,
+    images: [
+      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760447994/lost-and-found/items/file_fq7bgw.jpg",
+      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760447998/lost-and-found/items/file_ofwriw.jpg",
+    ],
+    dateFound: "2025-10-13",
+    status: "AVAILABLE",
+    category: "OTHER",
+    postedByUserId: 5,
+    claimedByUserId: null,
+  },
+];
 
 export default function Landing() {
   const router = useRouter();
@@ -165,18 +284,49 @@ export default function Landing() {
             </TouchableOpacity>
           </View>
 
-          {/* Empty State */}
-          <View style={styles.emptyState}>
-            <Ionicons
-              name="document-text-outline"
-              size={64}
-              color={palette.textSecondary}
-            />
-            <Text style={styles.emptyStateTitle}>No items yet</Text>
-            <Text style={styles.emptyStateDescription}>
-              Start by reporting a lost or found item
-            </Text>
-          </View>
+          {MOCK_RECENT_ITEMS.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.recentCarousel}
+            >
+              {MOCK_RECENT_ITEMS.map((item, index) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.carouselItem,
+                    index === MOCK_RECENT_ITEMS.length - 1
+                      ? styles.carouselItemLast
+                      : null,
+                  ]}
+                >
+                  <LostItemCard
+                    item={item}
+                    palette={palette}
+                    scheme={scheme}
+                    onPress={() =>
+                      Alert.alert(
+                        "Item details",
+                        "A detailed view is coming soon.",
+                      )
+                    }
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons
+                name="document-text-outline"
+                size={64}
+                color={palette.textSecondary}
+              />
+              <Text style={styles.emptyStateTitle}>No items yet</Text>
+              <Text style={styles.emptyStateDescription}>
+                Start by reporting a lost or found item
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Categories */}
@@ -184,12 +334,20 @@ export default function Landing() {
           <Text style={styles.sectionTitle}>Browse by Category</Text>
           <View style={styles.categoryGrid}>
             {[
-              { icon: "wallet-outline", label: "Wallets" },
-              { icon: "phone-portrait-outline", label: "Phones" },
-              { icon: "key-outline", label: "Keys" },
-              { icon: "bag-outline", label: "Bags" },
-              { icon: "card-outline", label: "Documents" },
-              { icon: "desktop-outline", label: "Electronics" },
+              {
+                label: "Phone",
+                value: "PHONE",
+                icon: "phone-portrait-outline",
+              },
+              { label: "Wallet", value: "WALLET", icon: "wallet-outline" },
+              { label: "Keys", value: "KEYS", icon: "key-outline" },
+              { label: "Bag", value: "BAG", icon: "bag-outline" },
+              {
+                label: "Electronic",
+                value: "ELECTRONIC",
+                icon: "desktop-outline",
+              },
+              { label: "Other", value: "OTHER", icon: "ellipse-outline" },
             ].map((category, index) => (
               <TouchableOpacity key={index} style={styles.categoryItem}>
                 <View style={styles.categoryIcon}>
@@ -453,7 +611,7 @@ const createStyles = (palette: any, scheme: "light" | "dark") =>
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
-      marginBottom: 16,
+      // marginBottom: 16,
     },
     sectionTitle: {
       fontSize: 18,
@@ -469,6 +627,7 @@ const createStyles = (palette: any, scheme: "light" | "dark") =>
     actionGrid: {
       flexDirection: "row",
       gap: 12,
+      // justifyContent: "space-between",
     },
     actionCard: {
       flex: 1,
@@ -502,6 +661,16 @@ const createStyles = (palette: any, scheme: "light" | "dark") =>
       paddingVertical: 40,
       paddingHorizontal: 20,
     },
+    recentCarousel: {
+      paddingRight: 20,
+    },
+    carouselItem: {
+      width: 280,
+      marginRight: 12,
+    },
+    carouselItemLast: {
+      marginRight: 0,
+    },
     emptyStateTitle: {
       fontSize: 18,
       fontWeight: "600",
@@ -518,6 +687,7 @@ const createStyles = (palette: any, scheme: "light" | "dark") =>
       flexDirection: "row",
       flexWrap: "wrap",
       gap: 12,
+      justifyContent: "space-between",
     },
     categoryItem: {
       width: "30%",

@@ -12,6 +12,37 @@ export type ItemCategory =
     | "DOCUMENT"
     | "OTHER";
 
+export type ItemStatus =
+    | "AVAILABLE"
+    | "CLAIMED"
+    | "RESOLVED"
+    | "ARCHIVED"
+    | string;
+
+export interface LostItemSummary {
+    id: number;
+    itemName: string;
+    description: string | null;
+    locationFound: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    images: string[];
+    dateFound: string | null;
+    status: ItemStatus;
+    category: ItemCategory;
+    postedByUserId: number;
+    claimedByUserId: number | null;
+}
+
+export interface PagedLostItems {
+    items: LostItemSummary[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+    last: boolean;
+}
+
 export interface ReportLostItemPayload {
     itemName: string;
     category: ItemCategory;
