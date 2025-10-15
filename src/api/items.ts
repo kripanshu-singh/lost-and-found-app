@@ -47,7 +47,7 @@ export interface ReportLostItemPayload {
     itemName: string;
     category: ItemCategory;
     description?: string;
-    locationFound?: string;
+    locationFound: string;
     dateFound?: string;
     latitude?: number;
     longitude?: number;
@@ -105,9 +105,7 @@ export async function reportLostItem(
     if (payload.description) {
         formData.append("description", payload.description.trim());
     }
-    if (payload.locationFound) {
-        formData.append("locationFound", payload.locationFound.trim());
-    }
+    formData.append("locationFound", payload.locationFound.trim());
     if (payload.dateFound) {
         formData.append("dateFound", payload.dateFound);
     }

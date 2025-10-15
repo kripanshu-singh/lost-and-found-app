@@ -10,6 +10,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -48,6 +49,34 @@ const CATEGORY_OPTIONS: {
   { label: "Stationery", value: "STATIONERY", icon: "create-outline" },
   { label: "Document", value: "DOCUMENT", icon: "document-text-outline" },
   { label: "Other", value: "OTHER", icon: "ellipse-outline" },
+];
+
+const CAMPUS_LOCATIONS: string[] = [
+  "Administrative Building (Prashasan Bhawan)",
+  "Examination Building",
+  "University Guest House",
+  "Vivekananda Central Library",
+  "Prof. Rajendra Singh (Rajju Bhaiya) Institute of Physical Sciences for Study & Research",
+  "Faculty of Management Studies (FMS)",
+  "Institute of Pharmacy",
+  "Dattopant Thengadi Law Institute",
+  "Computer Centre",
+  "Department of Mass Communication",
+  "Aryabhatt Auditorium",
+  "Eklavya Stadium",
+  "University Canteen",
+  "Dr. C.V. Raman Boys Hostel",
+  "Vishwakarma Boys Hostel",
+  "Charak Boys Hostel",
+  "Meerabai Girls Hostel",
+  "Draupadi Girls Hostel",
+  "University Main Gate",
+  "Temple",
+  "Rani Laxmibai Girls Hostel",
+  "Srinivasan Ramanujan Hostel",
+  "Transit & Gangotri Awas Hostel",
+  "ShriNivas Ramanujan Anushandhan Bhawan Hostel",
+  "Sarovar",
 ];
 
 const MAP_FOCUS_DELTA = 0.005;
@@ -90,6 +119,9 @@ export default function ReportLostItem() {
     return now;
   }, []);
   const [locationFound, setLocationFound] = useState("");
+  const [locationInputError, setLocationInputError] = useState<string | null>(
+    null,
+  );
   const [dateFound, setDateFound] = useState<Date | null>(today);
   const [iosDateDraft, setIosDateDraft] = useState<Date>(today);
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
@@ -103,6 +135,13 @@ export default function ReportLostItem() {
     () => (scheme === "dark" ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)"),
     [scheme],
   );
+
+  const handleLocationChange = (value: string) => {
+    setLocationFound(value);
+    if (locationInputError && value.trim()) {
+      setLocationInputError(null);
+    }
+  };
 
   const formatDateForDisplay = (value: Date | null) => {
     if (!value) {
@@ -391,6 +430,9 @@ export default function ReportLostItem() {
     const trimmedLocation = locationFound.trim();
     const isoDate = dateFound ? formatDateForApi(dateFound) : undefined;
 
+    setErrorMessage(null);
+    setLocationInputError(null);
+
     if (!trimmedName) {
       setErrorMessage("Item name is required.");
       return;
@@ -401,15 +443,19 @@ export default function ReportLostItem() {
       return;
     }
 
+    if (!trimmedLocation) {
+      setLocationInputError("Select where you found the item.");
+      return;
+    }
+
     setIsSubmitting(true);
-    setErrorMessage(null);
 
     try {
       const response = await reportLostItem({
         itemName: trimmedName,
         category,
         description: trimmedDescription || undefined,
-        locationFound: trimmedLocation || undefined,
+        locationFound: trimmedLocation,
         dateFound: isoDate,
         latitude: selectedCoordinate?.latitude,
         longitude: selectedCoordinate?.longitude,
@@ -469,7 +515,9 @@ export default function ReportLostItem() {
             palette={palette}
             placeholderColor={placeholderColor}
             locationFound={locationFound}
-            onChangeLocation={setLocationFound}
+            onChangeLocation={handleLocationChange}
+            campusLocations={CAMPUS_LOCATIONS}
+            locationInputError={locationInputError}
             onOpenMap={handleOpenMap}
             selectedCoordinate={selectedCoordinate}
             onClearCoordinate={clearSelectedCoordinate}
@@ -617,12 +665,20 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       color: palette.text,
       fontSize: 15,
     },
+    inputError: {
+      borderColor: palette.danger,
+    },
+    inputErrorText: {
+      marginTop: 6,
+      fontSize: 12,
+      color: palette.danger,
+    },
     multilineInput: {
       minHeight: 100,
       textAlignVertical: "top",
     },
     mapTrigger: {
-      marginTop: 6,
+      marginTop: 12,
       borderWidth: 1,
       borderColor: palette.border,
       borderRadius: 12,
@@ -660,6 +716,59 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       alignItems: "center",
       gap: 4,
       marginTop: 6,
+    },
+    locationSuggestionsBox: {
+      marginTop: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: palette.border,
+      backgroundColor: palette.surface,
+      maxHeight: 220,
+      overflow: "hidden",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: scheme === "dark" ? 0.35 : 0.12,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    locationSuggestionsScroll: {
+      maxHeight: 220,
+    },
+    locationSuggestionItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: palette.border,
+      backgroundColor: palette.surface,
+    },
+    locationSuggestionItemLast: {
+      borderBottomWidth: 0,
+    },
+    locationSuggestionIcon: {
+      opacity: 0.7,
+    },
+    locationSuggestionText: {
+      flex: 1,
+      fontSize: 14,
+      color: palette.text,
+    },
+    locationSuggestionTextActive: {
+      color: palette.primary,
+      fontWeight: "600",
+    },
+    locationSuggestionEmptyState: {
+      paddingHorizontal: 16,
+      paddingVertical: 20,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    locationSuggestionEmptyText: {
+      fontSize: 13,
+      color: palette.textSecondary,
+      textAlign: "center",
     },
     mapTriggerClearText: {
       fontSize: 12,
@@ -1065,6 +1174,8 @@ type LocationAndDateRowProps = {
   placeholderColor: string;
   locationFound: string;
   onChangeLocation: (value: string) => void;
+  campusLocations: string[];
+  locationInputError: string | null;
   onOpenMap: () => void;
   selectedCoordinate: LatLng | null;
   onClearCoordinate: () => void;
@@ -1082,6 +1193,8 @@ function LocationAndDateRow({
   placeholderColor,
   locationFound,
   onChangeLocation,
+  campusLocations,
+  locationInputError,
   onOpenMap,
   selectedCoordinate,
   onClearCoordinate,
@@ -1092,17 +1205,109 @@ function LocationAndDateRow({
   onClearDate,
   formatDateForDisplay,
 }: LocationAndDateRowProps) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const filteredLocations = useMemo(() => {
+    const query = locationFound.trim().toLowerCase();
+    if (!query) {
+      return campusLocations;
+    }
+
+    return campusLocations.filter((location) =>
+      location.toLowerCase().includes(query),
+    );
+  }, [campusLocations, locationFound]);
+
+  const handleSelectSuggestion = (value: string) => {
+    onChangeLocation(value);
+    setShowSuggestions(false);
+    Keyboard.dismiss();
+  };
+
+  const handleBlur = () => {
+    setTimeout(() => {
+      setShowSuggestions(false);
+    }, 120);
+  };
+
   return (
     <View style={styles.formSectionGroup}>
       <View style={styles.formSection}>
-        <Text style={styles.label}>Location found</Text>
+        <Text style={styles.label}>Location found *</Text>
         <TextInput
           value={locationFound}
           onChangeText={onChangeLocation}
-          style={styles.input}
+          style={[styles.input, locationInputError ? styles.inputError : null]}
           placeholder="Where was it found?"
           placeholderTextColor={placeholderColor}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={handleBlur}
+          autoCorrect={false}
+          autoCapitalize="words"
+          returnKeyType="done"
         />
+        {locationInputError ? (
+          <Text style={styles.inputErrorText}>{locationInputError}</Text>
+        ) : null}
+        {showSuggestions ? (
+          <View style={styles.locationSuggestionsBox}>
+            {filteredLocations.length > 0 ? (
+              <ScrollView
+                style={styles.locationSuggestionsScroll}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+              >
+                {filteredLocations.map((location, index) => {
+                  const isActive =
+                    locationFound.trim().toLowerCase() ===
+                    location.toLowerCase();
+                  const isLast = index === filteredLocations.length - 1;
+                  return (
+                    <TouchableOpacity
+                      key={location}
+                      style={[
+                        styles.locationSuggestionItem,
+                        isLast ? styles.locationSuggestionItemLast : null,
+                      ]}
+                      onPress={() => handleSelectSuggestion(location)}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons
+                        name="location-outline"
+                        size={16}
+                        color={
+                          isActive ? palette.primary : palette.textSecondary
+                        }
+                        style={styles.locationSuggestionIcon}
+                      />
+                      <Text
+                        style={[
+                          styles.locationSuggestionText,
+                          isActive ? styles.locationSuggestionTextActive : null,
+                        ]}
+                      >
+                        {location}
+                      </Text>
+                      {isActive ? (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color={palette.primary}
+                        />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <View style={styles.locationSuggestionEmptyState}>
+                <Text style={styles.locationSuggestionEmptyText}>
+                  No matching campus locations.
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : null}
         <TouchableOpacity
           style={styles.mapTrigger}
           onPress={onOpenMap}
