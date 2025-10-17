@@ -188,3 +188,36 @@ export async function fetchLostItems(
 
     return payload.data;
 }
+
+type RecentlyReportedApiResponse = {
+    success: boolean;
+    message?: string;
+    data?: LostItemSummary[];
+    error?: string;
+};
+
+export async function fetchRecentlyReported(
+    config?: HttpRequestConfig,
+): Promise<LostItemSummary[]> {
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+    };
+
+    const response = await httpClient.get<RecentlyReportedApiResponse>(
+        "/api/items/recently-reported",
+        requestConfig,
+    );
+    const payload = response.data;
+
+    if (!payload.success || !payload.data) {
+        throw new ApiError(
+            payload.message || payload.error || "Unable to fetch recently reported items.",
+            {
+                status: response.status,
+                data: payload,
+            },
+        );
+    }
+
+    return payload.data;
+}

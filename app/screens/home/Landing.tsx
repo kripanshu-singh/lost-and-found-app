@@ -1,8 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -13,133 +20,24 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { type LostItemSummary } from "../../../src/api/items";
+import { ApiError } from "../../../src/api/httpClient";
+import {
+  fetchRecentlyReported,
+  type LostItemSummary,
+} from "../../../src/api/items";
 import { useAuth } from "../../../src/auth/AuthProvider";
-import { ThemePreference, useAppTheme } from "../../../src/theme";
+import { Palette, ThemePreference, useAppTheme } from "../../../src/theme";
 import { LostItemCard } from "./components/LostItemCard";
-
-const MOCK_RECENT_ITEMS: LostItemSummary[] = [
-  {
-    id: 5,
-    itemName: "Bobby",
-    description: "Lorem, ipsum dolor.",
-    locationFound: "Library",
-    latitude: 9.0001,
-    longitude: 8.0001,
-    images: [
-      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448231/lost-and-found/items/file_d24ykb.jpg",
-      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448245/lost-and-found/items/file_op6d62.jpg",
-    ],
-    dateFound: "2025-10-14",
-    status: "CLAIMED",
-    category: "PHONE",
-    postedByUserId: 5,
-    claimedByUserId: 1,
-  },
-  {
-    id: 3,
-    itemName: "Ksmsn",
-    description: null,
-    locationFound: null,
-    latitude: null,
-    longitude: null,
-    images: [
-      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448062/lost-and-found/items/file_e3cc9p.jpg",
-      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448065/lost-and-found/items/file_q1dvjt.jpg",
-    ],
-    dateFound: "2025-10-14",
-    status: "AVAILABLE",
-    category: "WALLET",
-    postedByUserId: 5,
-    claimedByUserId: null,
-  },
-  {
-    id: 4,
-    itemName: "Jkendn",
-    description: null,
-    locationFound: null,
-    latitude: null,
-    longitude: null,
-    images: [
-      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448095/lost-and-found/items/file_zhxfph.jpg",
-      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448097/lost-and-found/items/file_cs64hw.jpg",
-    ],
-    dateFound: "2025-10-14",
-    status: "AVAILABLE",
-    category: "OTHER",
-    postedByUserId: 5,
-    claimedByUserId: null,
-  },
-  {
-    id: 8,
-    itemName: "By",
-    description: null,
-    locationFound: null,
-    latitude: null,
-    longitude: null,
-    images: [
-      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448519/lost-and-found/items/file_u3sqvl.jpg",
-    ],
-    dateFound: "2025-10-14",
-    status: "AVAILABLE",
-    category: "WALLET",
-    postedByUserId: 5,
-    claimedByUserId: null,
-  },
-  {
-    id: 6,
-    itemName: "Ved",
-    description: null,
-    locationFound: null,
-    latitude: null,
-    longitude: null,
-    images: [
-      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760448458/lost-and-found/items/file_t879cu.jpg",
-    ],
-    dateFound: "2025-10-14",
-    status: "AVAILABLE",
-    category: "OTHER",
-    postedByUserId: 5,
-    claimedByUserId: null,
-  },
-  {
-    id: 7,
-    itemName: "Jesse",
-    description: null,
-    locationFound: null,
-    latitude: null,
-    longitude: null,
-    images: [],
-    dateFound: "2025-10-14",
-    status: "AVAILABLE",
-    category: "WALLET",
-    postedByUserId: 5,
-    claimedByUserId: null,
-  },
-  {
-    id: 2,
-    itemName: "Black bottle",
-    description: null,
-    locationFound: null,
-    latitude: null,
-    longitude: null,
-    images: [
-      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760447994/lost-and-found/items/file_fq7bgw.jpg",
-      "https://res.cloudinary.com/dvu7kedjd/image/upload/v1760447998/lost-and-found/items/file_ofwriw.jpg",
-    ],
-    dateFound: "2025-10-13",
-    status: "AVAILABLE",
-    category: "OTHER",
-    postedByUserId: 5,
-    claimedByUserId: null,
-  },
-];
 
 export default function Landing() {
   const router = useRouter();
   const { palette, scheme, preference, setPreference } = useAppTheme();
   const { session, logout } = useAuth();
   const [isMenuVisible, setMenuVisible] = useState(false);
+  const [recentItems, setRecentItems] = useState<LostItemSummary[]>([]);
+  const [isRecentLoading, setIsRecentLoading] = useState(true);
+  const [recentError, setRecentError] = useState<string | null>(null);
+  const recentAbortControllerRef = useRef<AbortController | null>(null);
   const styles = useMemo(
     () => createStyles(palette, scheme),
     [palette, scheme],
@@ -193,6 +91,49 @@ export default function Landing() {
       setMenuVisible(false);
     }
   };
+
+  const loadRecentlyReported = useCallback(async () => {
+    recentAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    recentAbortControllerRef.current = controller;
+    setIsRecentLoading(true);
+
+    try {
+      const items = await fetchRecentlyReported({ signal: controller.signal });
+      setRecentItems(items);
+      setRecentError(null);
+    } catch (error) {
+      const isCancelled =
+        (error instanceof Error && error.name === "CanceledError") ||
+        (error instanceof ApiError &&
+          error.cause instanceof Error &&
+          error.cause.name === "CanceledError");
+
+      if (isCancelled) {
+        return;
+      }
+
+      setRecentItems([]);
+      setRecentError(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to load recently reported items.",
+      );
+    } finally {
+      if (recentAbortControllerRef.current === controller) {
+        recentAbortControllerRef.current = null;
+        setIsRecentLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRecentlyReported();
+    return () => {
+      recentAbortControllerRef.current?.abort();
+      recentAbortControllerRef.current = null;
+    };
+  }, [loadRecentlyReported]);
 
   return (
     <View style={styles.container}>
@@ -282,24 +223,51 @@ export default function Landing() {
         {/* Recent Activity */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Items</Text>
-            <TouchableOpacity>
+            <Text style={styles.sectionTitle}>Recently Reported</Text>
+            <TouchableOpacity
+              onPress={() => router.push("/screens/home/SearchItems")}
+              activeOpacity={0.85}
+            >
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
 
-          {MOCK_RECENT_ITEMS.length > 0 ? (
+          {isRecentLoading ? (
+            <View style={styles.recentLoader}>
+              <ActivityIndicator size="small" color={palette.primary} />
+              <Text style={styles.recentLoaderText}>
+                Loading latest reports…
+              </Text>
+            </View>
+          ) : recentError ? (
+            <View style={styles.recentState}>
+              <Ionicons
+                name="warning-outline"
+                size={40}
+                color={palette.danger}
+              />
+              <Text style={styles.recentStateText}>{recentError}</Text>
+              <TouchableOpacity
+                style={styles.recentRetryButton}
+                onPress={loadRecentlyReported}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="refresh" size={16} color={palette.surface} />
+                <Text style={styles.recentRetryText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : recentItems.length > 0 ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.recentCarousel}
             >
-              {MOCK_RECENT_ITEMS.map((item, index) => (
+              {recentItems.map((item, index) => (
                 <View
                   key={item.id}
                   style={[
                     styles.carouselItem,
-                    index === MOCK_RECENT_ITEMS.length - 1
+                    index === recentItems.length - 1
                       ? styles.carouselItemLast
                       : null,
                   ]}
@@ -465,7 +433,7 @@ export default function Landing() {
   );
 }
 
-const createStyles = (palette: any, scheme: "light" | "dark") =>
+const createStyles = (palette: Palette, scheme: "light" | "dark") =>
   StyleSheet.create({
     container: {
       flex: 1,
@@ -667,6 +635,42 @@ const createStyles = (palette: any, scheme: "light" | "dark") =>
     },
     recentCarousel: {
       paddingRight: 20,
+    },
+    recentLoader: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 32,
+      gap: 12,
+    },
+    recentLoaderText: {
+      fontSize: 13,
+      color: palette.textSecondary,
+    },
+    recentState: {
+      alignItems: "center",
+      justifyContent: "center",
+      paddingVertical: 32,
+      paddingHorizontal: 20,
+      gap: 12,
+    },
+    recentStateText: {
+      fontSize: 13,
+      color: palette.textSecondary,
+      textAlign: "center",
+    },
+    recentRetryButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: palette.primary,
+    },
+    recentRetryText: {
+      fontSize: 13,
+      fontWeight: "600",
+      color: palette.surface,
     },
     carouselItem: {
       width: 280,
