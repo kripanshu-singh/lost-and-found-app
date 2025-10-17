@@ -94,6 +94,21 @@ export function LostItemCard({
     () => formatFoundDate(item.dateFound) ?? "Date unknown",
     [item.dateFound],
   );
+  const normalizedStatus = useMemo(
+    () => item.status.toLowerCase(),
+    [item.status],
+  );
+  const isClaimed = normalizedStatus === "claimed";
+  const isAvailable = normalizedStatus === "available";
+  const statusLabel = useMemo(() => {
+    return (
+      normalizedStatus
+        .split(/[_\s-]+/)
+        .filter(Boolean)
+        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+        .join(" ") || "Unknown"
+    );
+  }, [normalizedStatus]);
 
   return (
     <TouchableOpacity
@@ -111,11 +126,28 @@ export function LostItemCard({
           <Text style={styles.title} numberOfLines={1}>
             {item.itemName}
           </Text>
-          <View style={styles.statusPill}>
-            <Text style={styles.statusText} numberOfLines={1}>
-              {item.status.toLowerCase() === "available"
-                ? "Available"
-                : item.status}
+          <View
+            style={[
+              styles.statusPill,
+              isClaimed
+                ? styles.statusPillClaimed
+                : isAvailable
+                  ? styles.statusPillAvailable
+                  : styles.statusPillDefault,
+            ]}
+          >
+            <Text
+              style={[
+                styles.statusText,
+                isClaimed
+                  ? styles.statusTextClaimed
+                  : isAvailable
+                    ? styles.statusTextAvailable
+                    : styles.statusTextDefault,
+              ]}
+              numberOfLines={1}
+            >
+              {statusLabel}
             </Text>
           </View>
         </View>
@@ -188,21 +220,47 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       paddingHorizontal: 8,
       paddingVertical: 4,
       borderRadius: 999,
+      borderWidth: 1,
+    },
+    statusPillDefault: {
+      backgroundColor:
+        scheme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)",
+      borderColor:
+        scheme === "dark" ? "rgba(255,255,255,0.16)" : "rgba(15,23,42,0.12)",
+    },
+    statusPillAvailable: {
       backgroundColor:
         scheme === "dark"
           ? "rgba(133, 187, 101, 0.25)"
           : "rgba(55, 125, 34, 0.12)",
-      borderWidth: 1,
       borderColor:
         scheme === "dark"
           ? "rgba(133, 187, 101, 0.4)"
           : "rgba(55, 125, 34, 0.25)",
     },
+    statusPillClaimed: {
+      backgroundColor:
+        scheme === "dark"
+          ? "rgba(245, 166, 35, 0.28)"
+          : "rgba(245, 166, 35, 0.18)",
+      borderColor:
+        scheme === "dark"
+          ? "rgba(245, 166, 35, 0.45)"
+          : "rgba(245, 166, 35, 0.38)",
+    },
     statusText: {
       fontSize: 11,
       fontWeight: "600",
-      color: scheme === "dark" ? "#8ecf80" : "#377d22",
       textTransform: "capitalize",
+    },
+    statusTextDefault: {
+      color: palette.text,
+    },
+    statusTextAvailable: {
+      color: scheme === "dark" ? "#8ecf80" : "#377d22",
+    },
+    statusTextClaimed: {
+      color: scheme === "dark" ? "#ffcb6b" : "#b26700",
     },
     metaText: {
       fontSize: 13,

@@ -81,14 +81,22 @@ const CATEGORY_OPTIONS: {
   { label: "Other", value: "OTHER", icon: "color-wand-outline" },
 ];
 
-const STATUS_OPTIONS: {
+type StatusOption = {
   label: string;
   value: ItemStatus | null;
   icon: IconName;
-}[] = [
+  accent?: "claimed";
+};
+
+const STATUS_OPTIONS: StatusOption[] = [
   { label: "Any status", value: null, icon: "layers-outline" },
   { label: "Available", value: "AVAILABLE", icon: "checkmark-circle-outline" },
-  { label: "Claimed", value: "CLAIMED", icon: "person-circle-outline" },
+  {
+    label: "Claimed",
+    value: "CLAIMED",
+    icon: "ribbon-outline",
+    accent: "claimed",
+  },
 ];
 
 const STATUS_FILTER_VALUES: ItemStatus[] = STATUS_OPTIONS.reduce<ItemStatus[]>(
