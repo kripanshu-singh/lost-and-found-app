@@ -142,10 +142,11 @@ export async function reportLostItem(
             type: resolveMimeType(uri),
         } as unknown as Blob;
         console.log(`\n ~ reportLostItem ~ file :- `, file);
+        console.log(`\n ~ reportLostItem ~ index :- `, index);
 
-        if (index === 0) {
-            formData.append("images", file);
-        }
+        // if (index === 0) {
+        formData.append("images", file);
+        // }
         // formData.append("images[]", file);
     });
 
@@ -217,6 +218,45 @@ export async function fetchRecentlyReported(
                 data: payload,
             },
         );
+    }
+
+    return payload.data;
+}
+
+export interface LostItemDetail extends LostItemSummary {
+    createdAt?: string | null;
+    updatedAt?: string | null;
+    reportedByName?: string | null;
+    reportedByEmail?: string | null;
+    reportedByPhone?: string | null;
+}
+
+type ItemDetailApiResponse = {
+    success: boolean;
+    message?: string;
+    data?: LostItemDetail;
+    error?: string;
+};
+
+export async function fetchLostItemById(
+    id: number,
+    config?: HttpRequestConfig,
+): Promise<LostItemDetail> {
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+    };
+
+    const response = await httpClient.get<ItemDetailApiResponse>(
+        `/api/items/${id}`,
+        requestConfig,
+    );
+    const payload = response.data;
+
+    if (!payload.success || !payload.data) {
+        throw new ApiError(payload.message || payload.error || "Unable to fetch item details.", {
+            status: response.status,
+            data: payload,
+        });
     }
 
     return payload.data;

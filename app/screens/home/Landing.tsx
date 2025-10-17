@@ -23,6 +23,7 @@ import {
 import { ApiError } from "../../../src/api/httpClient";
 import {
   fetchRecentlyReported,
+  type ItemCategory,
   type LostItemSummary,
 } from "../../../src/api/items";
 import { useAuth } from "../../../src/auth/AuthProvider";
@@ -84,6 +85,42 @@ export default function Landing() {
     [],
   );
 
+  const browseCategories = useMemo(
+    () => [
+      {
+        label: "Phone",
+        value: "PHONE" as ItemCategory,
+        icon: "phone-portrait-outline" as const,
+      },
+      {
+        label: "Wallet",
+        value: "WALLET" as ItemCategory,
+        icon: "wallet-outline" as const,
+      },
+      {
+        label: "Keys",
+        value: "KEYS" as ItemCategory,
+        icon: "key-outline" as const,
+      },
+      {
+        label: "Bag",
+        value: "BAG" as ItemCategory,
+        icon: "bag-outline" as const,
+      },
+      {
+        label: "Electronic",
+        value: "ELECTRONIC" as ItemCategory,
+        icon: "desktop-outline" as const,
+      },
+      {
+        label: "Other",
+        value: "OTHER" as ItemCategory,
+        icon: "ellipse-outline" as const,
+      },
+    ],
+    [],
+  );
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -134,6 +171,16 @@ export default function Landing() {
       recentAbortControllerRef.current = null;
     };
   }, [loadRecentlyReported]);
+
+  const handleOpenItemDetails = useCallback(
+    (id: number) => {
+      router.push({
+        pathname: "/screens/home/ItemDetail",
+        params: { id: String(id) },
+      });
+    },
+    [router],
+  );
 
   return (
     <View style={styles.container}>
@@ -276,12 +323,7 @@ export default function Landing() {
                     item={item}
                     palette={palette}
                     scheme={scheme}
-                    onPress={() =>
-                      Alert.alert(
-                        "Item details",
-                        "A detailed view is coming soon.",
-                      )
-                    }
+                    onPress={() => handleOpenItemDetails(item.id)}
                   />
                 </View>
               ))}
@@ -305,26 +347,21 @@ export default function Landing() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Browse by Category</Text>
           <View style={styles.categoryGrid}>
-            {[
-              {
-                label: "Phone",
-                value: "PHONE",
-                icon: "phone-portrait-outline",
-              },
-              { label: "Wallet", value: "WALLET", icon: "wallet-outline" },
-              { label: "Keys", value: "KEYS", icon: "key-outline" },
-              { label: "Bag", value: "BAG", icon: "bag-outline" },
-              {
-                label: "Electronic",
-                value: "ELECTRONIC",
-                icon: "desktop-outline",
-              },
-              { label: "Other", value: "OTHER", icon: "ellipse-outline" },
-            ].map((category, index) => (
-              <TouchableOpacity key={index} style={styles.categoryItem}>
+            {browseCategories.map((category) => (
+              <TouchableOpacity
+                key={category.value}
+                style={styles.categoryItem}
+                activeOpacity={0.85}
+                onPress={() =>
+                  router.push({
+                    pathname: "/screens/home/SearchItems",
+                    params: { category: category.value },
+                  })
+                }
+              >
                 <View style={styles.categoryIcon}>
                   <Ionicons
-                    name={category.icon as any}
+                    name={category.icon}
                     size={24}
                     color={palette.primary}
                   />

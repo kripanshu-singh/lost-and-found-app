@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerAndroid,
 } from "@react-native-community/datetimepicker";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -11,7 +12,6 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Keyboard,
   Modal,
@@ -80,6 +80,15 @@ const CATEGORY_OPTIONS: {
   { label: "Document", value: "DOCUMENT", icon: "document-text-outline" },
   { label: "Other", value: "OTHER", icon: "color-wand-outline" },
 ];
+
+const CATEGORY_VALUE_SET = new Set<ItemCategory>(
+  CATEGORY_OPTIONS.reduce<ItemCategory[]>((acc, option) => {
+    if (option.value) {
+      acc.push(option.value);
+    }
+    return acc;
+  }, []),
+);
 
 type StatusOption = {
   label: string;
@@ -168,6 +177,25 @@ const DEFAULT_FILTERS: SearchFilters = {
 
 export default function SearchItems() {
   const { palette, scheme } = useAppTheme();
+  const { category: categoryParam } = useLocalSearchParams<{
+    category?: string | string[];
+  }>();
+  const router = useRouter();
+
+  const incomingCategory = useMemo(() => {
+    if (!categoryParam) {
+      return null;
+    }
+    const raw = Array.isArray(categoryParam) ? categoryParam[0] : categoryParam;
+    if (typeof raw !== "string" || raw.length === 0) {
+      return null;
+    }
+    const normalized = raw.toUpperCase();
+    return isItemCategoryValue(normalized)
+      ? (normalized as ItemCategory)
+      : null;
+  }, [categoryParam]);
+
   const styles = useMemo(
     () => createStyles(palette, scheme),
     [palette, scheme],
@@ -178,9 +206,11 @@ export default function SearchItems() {
 
   const [filters, setFilters] = useState<SearchFilters>(() => ({
     ...DEFAULT_FILTERS,
+    categories: incomingCategory ? [incomingCategory] : [],
   }));
   const [draftFilters, setDraftFilters] = useState<SearchFilters>(() => ({
     ...DEFAULT_FILTERS,
+    categories: incomingCategory ? [incomingCategory] : [],
   }));
   const [customRangeError, setCustomRangeError] = useState<string | null>(null);
 
@@ -206,6 +236,12 @@ export default function SearchItems() {
     });
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const hasAppliedRouteCategoryRef = useRef(false);
+  const filtersRef = useRef<SearchFilters>(filters);
+
+  useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
 
   useEffect(() => {
     if (filters.status && !STATUS_FILTER_VALUES.includes(filters.status)) {
@@ -228,6 +264,37 @@ export default function SearchItems() {
       setCustomRangeError(null);
     }
   }, [filters, isFilterModalVisible]);
+
+  useEffect(() => {
+    if (!incomingCategory) {
+      hasAppliedRouteCategoryRef.current = false;
+      return;
+    }
+
+    const currentFilters = filtersRef.current;
+    const alreadySelected =
+      currentFilters.categories.length === 1 &&
+      currentFilters.categories[0] === incomingCategory;
+
+    if (!hasAppliedRouteCategoryRef.current) {
+      hasAppliedRouteCategoryRef.current = true;
+      if (alreadySelected) {
+        return;
+      }
+    } else if (alreadySelected) {
+      return;
+    }
+
+    setSearchInput("");
+    setFilters({
+      ...DEFAULT_FILTERS,
+      categories: [incomingCategory],
+    });
+    setDraftFilters({
+      ...DEFAULT_FILTERS,
+      categories: [incomingCategory],
+    });
+  }, [incomingCategory]);
 
   useEffect(() => {
     return () => {
@@ -491,15 +558,23 @@ export default function SearchItems() {
     Keyboard.dismiss();
   };
 
+  const handleOpenItem = useCallback(
+    (id: number) => {
+      router.push({
+        pathname: "/screens/home/ItemDetail",
+        params: { id: String(id) },
+      });
+    },
+    [router],
+  );
+
   const renderItem = ({ item }: { item: LostItemSummary }) => (
     <View style={styles.listItem}>
       <LostItemCard
         item={item}
         palette={palette}
         scheme={scheme}
-        onPress={() =>
-          Alert.alert("Item details", "Item detail view coming soon.")
-        }
+        onPress={() => handleOpenItem(item.id)}
       />
     </View>
   );
@@ -1145,6 +1220,10 @@ function buildDateRangeQuery(filters: SearchFilters): string | undefined {
     default:
       return undefined;
   }
+}
+
+function isItemCategoryValue(value: string): value is ItemCategory {
+  return CATEGORY_VALUE_SET.has(value as ItemCategory);
 }
 
 function createStyles(palette: Palette, scheme: "light" | "dark") {
