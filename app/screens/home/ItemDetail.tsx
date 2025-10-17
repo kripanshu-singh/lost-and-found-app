@@ -58,6 +58,7 @@ export default function ItemDetail() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isDescriptionExpanded, setDescriptionExpanded] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -92,6 +93,7 @@ export default function ItemDetail() {
         setItem(data);
         setErrorMessage(null);
         setActiveImageIndex(0);
+        setDescriptionExpanded(false);
       } catch (error) {
         const isCancelled = isRequestCancelled(error);
         if (isCancelled) {
@@ -359,7 +361,23 @@ export default function ItemDetail() {
       {item?.description ? (
         <View style={styles.sectionCard}>
           <Text style={styles.sectionHeading}>Description</Text>
-          <Text style={styles.bodyText}>{item.description}</Text>
+          <Text
+            style={styles.bodyText}
+            numberOfLines={isDescriptionExpanded ? undefined : 3}
+          >
+            {item.description}
+          </Text>
+          {item.description.length > 160 ? (
+            <TouchableOpacity
+              onPress={() => setDescriptionExpanded((prev) => !prev)}
+              style={styles.toggleDescriptionButton}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.toggleDescriptionText}>
+                {isDescriptionExpanded ? "See less" : "See more"}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : null}
 
@@ -723,6 +741,15 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       fontSize: 15,
       fontWeight: "600",
       color: palette.text,
+    },
+    toggleDescriptionButton: {
+      alignSelf: "flex-start",
+      marginTop: 8,
+    },
+    toggleDescriptionText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: palette.primary,
     },
     centerState: {
       flex: 1,
