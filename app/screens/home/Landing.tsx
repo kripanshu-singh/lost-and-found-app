@@ -258,7 +258,11 @@ export default function Landing() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionCard}>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => router.push("/screens/home/SearchItems")}
+              activeOpacity={0.85}
+            >
               <View
                 style={[
                   styles.actionIcon,

@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import { httpClient, type HttpRequestConfig } from "./httpClient";
+import { ApiError, httpClient, type HttpRequestConfig } from "./httpClient";
 
 export type ItemCategory =
     | "PHONE"
@@ -67,6 +67,24 @@ export interface ReportLostItemResponse {
     data?: ReportLostItemResponseData | Record<string, unknown>;
     error?: string;
 }
+
+export interface FetchLostItemsParams {
+    searchTerm?: string;
+    category?: ItemCategory | ItemCategory[];
+    dateRange?: string;
+    status?: ItemStatus;
+    sortBy?: string;
+    sortOrder?: "asc" | "desc" | string;
+    page?: number;
+    size?: number;
+}
+
+type LostItemsApiResponse = {
+    success: boolean;
+    message?: string;
+    data?: PagedLostItems;
+    error?: string;
+};
 
 function extractFileName(uri: string, fallback: string, index: number) {
     const segments = uri.split(/[/\\]/);
@@ -144,4 +162,29 @@ export async function reportLostItem(
     );
 
     return response.data;
+}
+
+export async function fetchLostItems(
+    params: FetchLostItemsParams = {},
+    config?: HttpRequestConfig,
+): Promise<PagedLostItems> {
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+        params: {
+            ...(config?.params as Record<string, unknown> | undefined),
+            ...params,
+        },
+    };
+
+    const response = await httpClient.get<LostItemsApiResponse>("/api/items", requestConfig);
+    const payload = response.data;
+
+    if (!payload.success || !payload.data) {
+        throw new ApiError(payload.message || payload.error || "Unable to fetch items.", {
+            status: response.status,
+            data: payload,
+        });
+    }
+
+    return payload.data;
 }

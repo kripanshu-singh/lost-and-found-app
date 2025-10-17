@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   {
     label: "Search",
     icon: "search-outline" as const,
-    alertMessage: "Search is coming soon.",
+    route: "/screens/home/SearchItems" as const,
   },
   {
     label: "Add",
@@ -33,7 +33,10 @@ const NAV_ITEMS = [
   },
 ] satisfies NavItem[];
 
-type NavRoute = "/screens/home/Landing" | "/screens/home/ReportLostItem";
+type NavRoute =
+  | "/screens/home/Landing"
+  | "/screens/home/ReportLostItem"
+  | "/screens/home/SearchItems";
 
 type NavItem = {
   label: string;

@@ -78,6 +78,8 @@ const Login = () => {
       return;
     }
 
+    Keyboard.dismiss();
+
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPassword = password.trim();
 
