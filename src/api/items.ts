@@ -74,6 +74,23 @@ export interface ReportLostItemResponse {
     error?: string;
 }
 
+export interface UpdateLostItemPayload {
+    itemName?: string | null;
+    description?: string | null;
+    locationFound?: string | null;
+    dateFound?: string | null;
+    category?: ItemCategory | null;
+    latitude?: number | null;
+    longitude?: number | null;
+}
+
+export interface UpdateLostItemResponse {
+    success: boolean;
+    message?: string;
+    data?: LostItemDetail;
+    error?: string;
+}
+
 export interface FetchLostItemsParams {
     searchTerm?: string;
     category?: ItemCategory | ItemCategory[];
@@ -342,6 +359,76 @@ export async function fetchLostItemById(
         return payload.data;
     } catch (error) {
         console.log("[itemsApi] fetchLostItemById error", {
+            id,
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
+}
+
+export async function updateLostItem(
+    id: number,
+    payload: UpdateLostItemPayload,
+    config?: HttpRequestConfig,
+): Promise<UpdateLostItemResponse> {
+    const requestBody: Record<string, unknown> = {};
+
+    if (payload.itemName !== undefined) {
+        requestBody.itemName = payload.itemName?.trim() || null;
+    }
+    if (payload.description !== undefined) {
+        const trimmed = payload.description?.trim();
+        requestBody.description = trimmed?.length ? trimmed : null;
+    }
+    if (payload.locationFound !== undefined) {
+        requestBody.locationFound = payload.locationFound?.trim() || null;
+    }
+    if (payload.dateFound !== undefined) {
+        requestBody.dateFound = payload.dateFound || null;
+    }
+    if (payload.category !== undefined) {
+        requestBody.category = payload.category ?? null;
+    }
+    if (payload.latitude !== undefined) {
+        requestBody.latitude =
+            typeof payload.latitude === "number" && Number.isFinite(payload.latitude)
+                ? Number(payload.latitude.toFixed(6))
+                : null;
+    }
+    if (payload.longitude !== undefined) {
+        requestBody.longitude =
+            typeof payload.longitude === "number" && Number.isFinite(payload.longitude)
+                ? Number(payload.longitude.toFixed(6))
+                : null;
+    }
+
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+    };
+
+    try {
+        const response = await httpClient.put<UpdateLostItemResponse>(
+            `/api/items/${id}`,
+            requestBody,
+            requestConfig,
+        );
+
+        const payloadResponse = response.data;
+        if (!payloadResponse.success) {
+            throw new ApiError(payloadResponse.message || payloadResponse.error || "Unable to update item.", {
+                status: response.status,
+                data: payloadResponse,
+            });
+        }
+
+        console.log("[itemsApi] updateLostItem success", {
+            id,
+            message: payloadResponse.message,
+        });
+
+        return payloadResponse;
+    } catch (error) {
+        console.log("[itemsApi] updateLostItem error", {
             id,
             error: error instanceof Error ? error.message : error,
         });

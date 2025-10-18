@@ -12,6 +12,9 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   RefreshControl,
   ScrollView,
   Share,
@@ -61,8 +64,12 @@ export default function ItemDetail() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isDescriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [isPreviewVisible, setPreviewVisible] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const heroScrollRef = useRef<ScrollView | null>(null);
+  const previewScrollRef = useRef<ScrollView | null>(null);
 
   const carouselImages = useMemo(() => {
     return sanitizeImageUris(item?.images);
@@ -136,6 +143,16 @@ export default function ItemDetail() {
     };
   }, [loadItem, numericId]);
 
+  useEffect(() => {
+    if (!isPreviewVisible || !previewScrollRef.current) {
+      return;
+    }
+    previewScrollRef.current.scrollTo({
+      x: previewIndex * Math.max(screenWidth, 1),
+      animated: false,
+    });
+  }, [isPreviewVisible, previewIndex, screenWidth]);
+
   const handleRefresh = useCallback(() => {
     if (isRefreshing || !numericId) {
       return;
@@ -197,6 +214,43 @@ export default function ItemDetail() {
     }
   }, [item]);
 
+  const handleOpenPreview = useCallback(
+    (index: number) => {
+      const boundedIndex = Math.max(
+        0,
+        Math.min(index, Math.max(carouselImages.length - 1, 0)),
+      );
+      setPreviewIndex(boundedIndex);
+      setPreviewVisible(true);
+    },
+    [carouselImages.length],
+  );
+
+  const handleClosePreview = useCallback(() => {
+    setPreviewVisible(false);
+    setActiveImageIndex(previewIndex);
+    if (heroScrollRef.current) {
+      heroScrollRef.current.scrollTo({
+        x: previewIndex * Math.max(screenWidth, 1),
+        animated: false,
+      });
+    }
+  }, [previewIndex, screenWidth]);
+
+  const handlePreviewMomentum = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const index = Math.round(
+        event.nativeEvent.contentOffset.x / Math.max(screenWidth, 1),
+      );
+      if (!Number.isFinite(index)) {
+        return;
+      }
+      setPreviewIndex(index);
+      setActiveImageIndex(index);
+    },
+    [screenWidth],
+  );
+
   const statusVariant = useMemo(() => {
     return resolveStatusVariant(item?.status, palette, scheme);
   }, [item?.status, palette, scheme]);
@@ -225,11 +279,14 @@ export default function ItemDetail() {
   }, [item, session?.userId]);
 
   const handleEditItem = useCallback(() => {
-    if (!item) {
+    if (!item?.id) {
       return;
     }
-    Alert.alert("Editing soon", "Item editing will be available soon.");
-  }, [item]);
+    router.push({
+      pathname: "/screens/home/UpdateItem",
+      params: { id: String(item.id) },
+    });
+  }, [item?.id, router]);
 
   const handleDeleteItem = useCallback(() => {
     if (!item) {
@@ -269,6 +326,7 @@ export default function ItemDetail() {
   const renderHero = () => (
     <View style={[styles.heroContainer, { width: screenWidth }]}>
       <ScrollView
+        ref={heroScrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -281,12 +339,18 @@ export default function ItemDetail() {
         }}
       >
         {carouselImages.map((uri, index) => (
-          <Image
+          <TouchableOpacity
             key={`${uri}-${index}`}
-            source={{ uri }}
-            style={[styles.heroImage, { width: screenWidth }]}
-            contentFit="cover"
-          />
+            activeOpacity={0.9}
+            onPress={() => handleOpenPreview(index)}
+            style={[styles.heroImageWrapper, { width: screenWidth }]}
+          >
+            <Image
+              source={{ uri }}
+              style={styles.heroImage}
+              contentFit="cover"
+            />
+          </TouchableOpacity>
         ))}
       </ScrollView>
       <View style={styles.heroTopBar}>
@@ -512,6 +576,69 @@ export default function ItemDetail() {
     </ScrollView>
   );
 
+  const renderPreviewModal = () => {
+    if (!isPreviewVisible) {
+      return null;
+    }
+
+    return (
+      <Modal
+        visible
+        transparent
+        animationType="fade"
+        onRequestClose={handleClosePreview}
+      >
+        <View style={styles.previewBackdrop}>
+          <StatusBar
+            barStyle="light-content"
+            backgroundColor="rgba(0,0,0,0.96)"
+          />
+          <SafeAreaView
+            style={styles.previewSafeArea}
+            edges={["top", "bottom"]}
+          >
+            <View style={styles.previewHeader}>
+              <TouchableOpacity
+                style={styles.previewCloseButton}
+                onPress={handleClosePreview}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="close" size={22} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              ref={previewScrollRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              style={styles.previewCarousel}
+              contentContainerStyle={styles.previewCarouselContent}
+              onMomentumScrollEnd={handlePreviewMomentum}
+            >
+              {carouselImages.map((uri, index) => (
+                <View
+                  key={`${uri}-preview-${index}`}
+                  style={[styles.previewPage, { width: screenWidth }]}
+                >
+                  <Image
+                    source={{ uri }}
+                    style={styles.previewImage}
+                    contentFit="contain"
+                  />
+                </View>
+              ))}
+            </ScrollView>
+            <View style={styles.previewFooter}>
+              <Text style={styles.previewCounter}>
+                {`${previewIndex + 1} / ${carouselImages.length}`}
+              </Text>
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <StatusBar
@@ -522,6 +649,7 @@ export default function ItemDetail() {
       {isLoading ? renderLoader() : null}
       {!isLoading && errorMessage ? renderError() : null}
       {!isLoading && !errorMessage ? renderContent() : null}
+      {renderPreviewModal()}
     </SafeAreaView>
   );
 }
@@ -755,7 +883,11 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       shadowRadius: 16,
       elevation: 8,
     },
+    heroImageWrapper: {
+      height: "100%",
+    },
     heroImage: {
+      width: "100%",
       height: "100%",
     },
     heroTopBar: {
@@ -981,6 +1113,52 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       fontSize: 14,
       fontWeight: "600",
       color: palette.surface,
+    },
+    previewBackdrop: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.96)",
+    },
+    previewSafeArea: {
+      flex: 1,
+    },
+    previewHeader: {
+      flexDirection: "row",
+      justifyContent: "flex-end",
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 12,
+    },
+    previewCloseButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "rgba(255,255,255,0.12)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    previewCarousel: {
+      flex: 1,
+    },
+    previewCarouselContent: {
+      flexGrow: 1,
+    },
+    previewPage: {
+      height: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    previewImage: {
+      width: "100%",
+      height: "100%",
+    },
+    previewFooter: {
+      alignItems: "center",
+      paddingVertical: 16,
+    },
+    previewCounter: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#fff",
     },
   });
 
