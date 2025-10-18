@@ -466,6 +466,8 @@ export default function ReportLostItem() {
         setErrorMessage(response.message || "Unable to submit the report.");
         return;
       }
+
+      router.replace("/screens/home/Landing");
     } catch (error) {
       const message =
         error instanceof ApiError
