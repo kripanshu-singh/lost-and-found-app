@@ -28,6 +28,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "../../../src/api/httpClient";
 import {
+  deleteLostItem,
   fetchLostItemById,
   type ItemCategory,
   type LostItemDetail,
@@ -66,6 +67,7 @@ export default function ItemDetail() {
   const [isDescriptionExpanded, setDescriptionExpanded] = useState(false);
   const [isPreviewVisible, setPreviewVisible] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const heroScrollRef = useRef<ScrollView | null>(null);
@@ -288,15 +290,52 @@ export default function ItemDetail() {
     });
   }, [item?.id, router]);
 
-  const handleDeleteItem = useCallback(() => {
-    if (!item) {
+  const performDeleteItem = useCallback(async () => {
+    const itemId = item?.id;
+    if (!itemId) {
       return;
     }
-    Alert.alert(
-      "Delete coming soon",
-      "Deleting items will be available shortly.",
-    );
-  }, [item]);
+
+    setIsDeleting(true);
+    try {
+      const response = await deleteLostItem(itemId);
+      const message = response.message || "Item deleted successfully.";
+      Alert.alert("Item deleted", message, [
+        {
+          text: "OK",
+          onPress: () => {
+            router.replace("/screens/home/Landing");
+          },
+        },
+      ]);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : "Unable to delete this item right now.";
+      Alert.alert("Delete failed", message);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [item?.id, router]);
+
+  const handleDeleteItem = useCallback(() => {
+    if (!item?.id || isDeleting) {
+      return;
+    }
+
+    Alert.alert("Delete this item?", "This action cannot be undone.", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: performDeleteItem,
+      },
+    ]);
+  }, [item?.id, isDeleting, performDeleteItem]);
 
   const renderLoader = () => (
     <View style={styles.centerState}>
@@ -554,20 +593,44 @@ export default function ItemDetail() {
                 <Text style={styles.ownerActionText}>Edit</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.ownerActionButton, styles.ownerDeleteButton]}
+                style={[
+                  styles.ownerActionButton,
+                  styles.ownerDeleteButton,
+                  isDeleting ? styles.ownerActionDisabled : null,
+                ]}
                 onPress={handleDeleteItem}
                 activeOpacity={0.85}
+                disabled={isDeleting}
               >
-                <Ionicons
-                  name="trash-outline"
-                  size={18}
-                  color={palette.surface}
-                />
-                <Text
-                  style={[styles.ownerActionText, { color: palette.surface }]}
-                >
-                  Delete
-                </Text>
+                {isDeleting ? (
+                  <>
+                    <ActivityIndicator size="small" color={palette.surface} />
+                    <Text
+                      style={[
+                        styles.ownerActionText,
+                        { color: palette.surface },
+                      ]}
+                    >
+                      Deleting...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons
+                      name="trash-outline"
+                      size={18}
+                      color={palette.surface}
+                    />
+                    <Text
+                      style={[
+                        styles.ownerActionText,
+                        { color: palette.surface },
+                      ]}
+                    >
+                      Delete
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           ) : null}
@@ -1068,6 +1131,9 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       paddingVertical: 12,
       borderWidth: 1,
       backgroundColor: palette.surface,
+    },
+    ownerActionDisabled: {
+      opacity: 0.75,
     },
     ownerActionText: {
       fontSize: 15,

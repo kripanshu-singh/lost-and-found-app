@@ -91,6 +91,12 @@ export interface UpdateLostItemResponse {
     error?: string;
 }
 
+export interface DeleteLostItemResponse {
+    success: boolean;
+    message?: string;
+    error?: string;
+}
+
 export interface FetchLostItemsParams {
     searchTerm?: string;
     category?: ItemCategory | ItemCategory[];
@@ -429,6 +435,55 @@ export async function updateLostItem(
         return payloadResponse;
     } catch (error) {
         console.log("[itemsApi] updateLostItem error", {
+            id,
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
+}
+
+export async function deleteLostItem(
+    id: number,
+    config?: HttpRequestConfig,
+): Promise<DeleteLostItemResponse> {
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+    };
+
+    console.log("[itemsApi] deleteLostItem start", { id });
+
+    try {
+        const response = await httpClient.delete<DeleteLostItemResponse>(
+            `/api/items/${id}`,
+            requestConfig,
+        );
+
+        const payload = response.data;
+
+        if (!payload.success) {
+            console.log("[itemsApi] deleteLostItem failed", {
+                id,
+                status: response.status,
+                message: payload.message,
+                error: payload.error,
+            });
+            throw new ApiError(
+                payload.message || payload.error || "Unable to delete item.",
+                {
+                    status: response.status,
+                    data: payload,
+                },
+            );
+        }
+
+        console.log("[itemsApi] deleteLostItem success", {
+            id,
+            message: payload.message,
+        });
+
+        return payload;
+    } catch (error) {
+        console.log("[itemsApi] deleteLostItem error", {
             id,
             error: error instanceof Error ? error.message : error,
         });

@@ -439,21 +439,10 @@ export default function UpdateItem() {
         setImages(sanitizeImageUris(response.data.images));
       }
 
-      const message = response.message || "Item updated successfully.";
-      Alert.alert("Success", message, [
-        {
-          text: "View item",
-          onPress: () => {
-            router.replace({
-              pathname: "/screens/home/ItemDetail",
-              params: { id: String(numericId) },
-            });
-          },
-        },
-        {
-          text: "Stay here",
-        },
-      ]);
+      router.replace({
+        pathname: "/screens/home/ItemDetail",
+        params: { id: String(numericId) },
+      });
     } catch (error) {
       const message =
         error instanceof ApiError
