@@ -28,6 +28,12 @@ export interface CurrentUserResponse {
     error?: string;
 }
 
+export interface UpdateFcmTokenResponse {
+    success: boolean;
+    message?: string;
+    error?: string;
+}
+
 export interface NormalizedUserProfile {
     userId: number;
     name: string;
@@ -174,6 +180,33 @@ export async function getCurrentUser(): Promise<CurrentUserResponse> {
         return response.data;
     } catch (error) {
         console.log("[usersApi] getCurrentUser: request failed", {
+            error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+    }
+}
+
+export async function updateUserFcmToken(fcmToken: string | null): Promise<UpdateFcmTokenResponse> {
+    console.log("[usersApi] updateUserFcmToken: sending request", {
+        hasToken: Boolean(fcmToken),
+    });
+
+    try {
+        const response = await httpClient.post<UpdateFcmTokenResponse>(
+            "/api/users/update-fcm-token",
+            {
+                fcmToken,
+            },
+        );
+
+        console.log("[usersApi] updateUserFcmToken: response received", {
+            success: response.data?.success,
+            message: response.data?.message,
+        });
+
+        return response.data;
+    } catch (error) {
+        console.log("[usersApi] updateUserFcmToken: request failed", {
             error: error instanceof Error ? error.message : String(error),
         });
         throw error;
