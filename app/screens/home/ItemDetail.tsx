@@ -299,15 +299,7 @@ export default function ItemDetail() {
     setIsDeleting(true);
     try {
       const response = await deleteLostItem(itemId);
-      const message = response.message || "Item deleted successfully.";
-      Alert.alert("Item deleted", message, [
-        {
-          text: "OK",
-          onPress: () => {
-            router.replace("/screens/home/Landing");
-          },
-        },
-      ]);
+      router.replace("/screens/home/Landing");
     } catch (error) {
       const message =
         error instanceof ApiError
