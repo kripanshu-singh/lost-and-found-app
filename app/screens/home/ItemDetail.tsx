@@ -289,7 +289,6 @@ export default function ItemDetail() {
           />
         ))}
       </ScrollView>
-      <View style={styles.heroOverlay} />
       <View style={styles.heroTopBar}>
         <TouchableOpacity
           style={styles.heroIconButton}
@@ -306,42 +305,6 @@ export default function ItemDetail() {
           <Ionicons name="share-outline" size={20} color={palette.surface} />
         </TouchableOpacity>
       </View>
-      <View style={styles.heroBottomContent}>
-        <View style={styles.heroChipRow}>
-          <View style={styles.heroChip}>
-            <Ionicons
-              name="pricetag-outline"
-              size={14}
-              color={palette.surface}
-            />
-            <Text style={styles.heroChipText}>{categoryLabel}</Text>
-          </View>
-          <View
-            style={[
-              styles.statusChip,
-              { backgroundColor: statusVariant.background },
-            ]}
-          >
-            <Ionicons
-              name={statusVariant.icon}
-              size={14}
-              color={statusVariant.textColor}
-            />
-            <Text
-              style={[
-                styles.statusChipText,
-                { color: statusVariant.textColor },
-              ]}
-            >
-              {statusVariant.label}
-            </Text>
-          </View>
-        </View>
-        <Text style={styles.heroTitle}>{item?.itemName}</Text>
-        <Text style={styles.heroSubtitle} numberOfLines={1}>
-          {item?.locationFound ?? "Location not specified"}
-        </Text>
-      </View>
       <View style={styles.heroDotsRow}>
         {carouselImages.map((_, index) => (
           <View
@@ -355,6 +318,51 @@ export default function ItemDetail() {
       </View>
     </View>
   );
+
+  const renderHeadline = () => {
+    if (!item) {
+      return null;
+    }
+
+    return (
+      <View style={styles.headlineSection}>
+        <View style={styles.headlineChipRow}>
+          <View style={styles.headlineChip}>
+            <Ionicons
+              name="pricetag-outline"
+              size={14}
+              color={palette.primary}
+            />
+            <Text style={styles.headlineChipText}>{categoryLabel}</Text>
+          </View>
+          <View
+            style={[
+              styles.headlineStatusChip,
+              { backgroundColor: statusVariant.background },
+            ]}
+          >
+            <Ionicons
+              name={statusVariant.icon}
+              size={14}
+              color={statusVariant.textColor}
+            />
+            <Text
+              style={[
+                styles.headlineStatusChipText,
+                { color: statusVariant.textColor },
+              ]}
+            >
+              {statusVariant.label}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.headlineTitle}>{item.itemName}</Text>
+        <Text style={styles.headlineSubtitle} numberOfLines={2}>
+          {item.locationFound ?? "Location not specified"}
+        </Text>
+      </View>
+    );
+  };
 
   const renderContent = () => (
     <ScrollView
@@ -373,6 +381,7 @@ export default function ItemDetail() {
       {renderHero()}
 
       <View style={styles.bodyContainer}>
+        {renderHeadline()}
         <View style={styles.card}>
           <Text style={styles.sectionHeading}>Item snapshot</Text>
           <View style={styles.infoGrid}>
@@ -387,16 +396,6 @@ export default function ItemDetail() {
               value={coordinateLabel ?? "Unavailable"}
               onPress={coordinateLabel ? handleOpenMap : undefined}
               accentColor={coordinateLabel ? palette.primary : undefined}
-            />
-            <InfoCell
-              icon="information-circle-outline"
-              label="Status"
-              value={statusVariant.label}
-            />
-            <InfoCell
-              icon="layers-outline"
-              label="Category"
-              value={categoryLabel}
             />
           </View>
         </View>
@@ -759,10 +758,6 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
     heroImage: {
       height: "100%",
     },
-    heroOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: "rgba(0,0,0,0.25)",
-    },
     heroTopBar: {
       position: "absolute",
       top: 16,
@@ -779,35 +774,32 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       alignItems: "center",
       justifyContent: "center",
     },
-    heroBottomContent: {
-      position: "absolute",
-      left: 20,
-      right: 20,
-      bottom: 36,
-      gap: 10,
+    headlineSection: {
+      gap: 12,
     },
-    heroChipRow: {
+    headlineChipRow: {
       flexDirection: "row",
       gap: 10,
       flexWrap: "wrap",
     },
-    heroChip: {
+    headlineChip: {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 999,
-      backgroundColor: "rgba(255,255,255,0.15)",
+      backgroundColor:
+        scheme === "dark" ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.12)",
     },
-    heroChipText: {
+    headlineChipText: {
       fontSize: 12,
       fontWeight: "600",
-      color: palette.surface,
+      color: palette.primary,
       textTransform: "uppercase",
       letterSpacing: 0.8,
     },
-    statusChip: {
+    headlineStatusChip: {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
@@ -815,21 +807,21 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       paddingHorizontal: 12,
       paddingVertical: 6,
     },
-    statusChipText: {
+    headlineStatusChipText: {
       fontSize: 12,
       fontWeight: "700",
       textTransform: "uppercase",
       letterSpacing: 0.8,
     },
-    heroTitle: {
+    headlineTitle: {
       fontSize: 28,
       fontWeight: "800",
-      color: palette.surface,
+      color: palette.text,
     },
-    heroSubtitle: {
+    headlineSubtitle: {
       fontSize: 14,
       fontWeight: "500",
-      color: "rgba(255,255,255,0.86)",
+      color: palette.textSecondary,
     },
     heroDotsRow: {
       position: "absolute",
