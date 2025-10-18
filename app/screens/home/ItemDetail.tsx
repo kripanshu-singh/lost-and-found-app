@@ -29,6 +29,7 @@ import {
   type ItemCategory,
   type LostItemDetail,
 } from "../../../src/api/items";
+import { useAuth } from "../../../src/auth/AuthProvider";
 import { Palette, useAppTheme } from "../../../src/theme";
 
 const FALLBACK_IMAGE =
@@ -36,6 +37,7 @@ const FALLBACK_IMAGE =
 
 export default function ItemDetail() {
   const router = useRouter();
+  const { session } = useAuth();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const rawId = Array.isArray(params.id) ? params.id[0] : params.id;
   const numericId = useMemo(() => {
@@ -95,8 +97,7 @@ export default function ItemDetail() {
         setActiveImageIndex(0);
         setDescriptionExpanded(false);
       } catch (error) {
-        const isCancelled = isRequestCancelled(error);
-        if (isCancelled) {
+        if (isRequestCancelled(error)) {
           return;
         }
 
@@ -178,6 +179,7 @@ export default function ItemDetail() {
       item.itemName,
       item.locationFound ? `Location: ${item.locationFound}` : undefined,
       item.description ? `Details: ${item.description}` : undefined,
+      item.postedBy?.name ? `Reported by: ${item.postedBy.name}` : undefined,
     ]
       .filter(Boolean)
       .join("\n");
@@ -185,7 +187,7 @@ export default function ItemDetail() {
     try {
       await Share.share({
         message: shareMessage || item.itemName,
-        title: "Lost item",
+        title: "Lost & Found item",
       });
     } catch (error) {
       if (error instanceof Error && error.message === "User did not share") {
@@ -195,9 +197,9 @@ export default function ItemDetail() {
     }
   }, [item]);
 
-  const statusLabel = useMemo(() => {
-    return item ? formatStatusLabel(item.status) : "";
-  }, [item]);
+  const statusVariant = useMemo(() => {
+    return resolveStatusVariant(item?.status, palette, scheme);
+  }, [item?.status, palette, scheme]);
 
   const categoryLabel = useMemo(() => {
     return item ? formatCategoryLabel(item.category) : "";
@@ -214,25 +216,30 @@ export default function ItemDetail() {
     return formatCoordinates(item.latitude, item.longitude);
   }, [item]);
 
-  const statusTone = useMemo(() => {
-    const tone = normalizeStatusTone(item?.status);
-    if (tone === "available") {
-      return {
-        pill: styles.statusPillAvailable,
-        text: styles.statusTextAvailable,
-      } as const;
+  const isOwner = useMemo(() => {
+    if (!item || !session?.userId) {
+      return false;
     }
-    if (tone === "claimed") {
-      return {
-        pill: styles.statusPillClaimed,
-        text: styles.statusTextClaimed,
-      } as const;
+    const reporterId = item.postedBy?.id ?? item.postedByUserId ?? null;
+    return reporterId === session.userId;
+  }, [item, session?.userId]);
+
+  const handleEditItem = useCallback(() => {
+    if (!item) {
+      return;
     }
-    return {
-      pill: styles.statusPillDefault,
-      text: styles.statusTextDefault,
-    } as const;
-  }, [item?.status, styles]);
+    Alert.alert("Editing soon", "Item editing will be available soon.");
+  }, [item]);
+
+  const handleDeleteItem = useCallback(() => {
+    if (!item) {
+      return;
+    }
+    Alert.alert(
+      "Delete coming soon",
+      "Deleting items will be available shortly.",
+    );
+  }, [item]);
 
   const renderLoader = () => (
     <View style={styles.centerState}>
@@ -259,6 +266,96 @@ export default function ItemDetail() {
     </View>
   );
 
+  const renderHero = () => (
+    <View style={[styles.heroContainer, { width: screenWidth }]}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        nestedScrollEnabled
+        onMomentumScrollEnd={(event) => {
+          const index = Math.round(
+            event.nativeEvent.contentOffset.x / Math.max(screenWidth, 1),
+          );
+          setActiveImageIndex(index);
+        }}
+      >
+        {carouselImages.map((uri, index) => (
+          <Image
+            key={`${uri}-${index}`}
+            source={{ uri }}
+            style={[styles.heroImage, { width: screenWidth }]}
+            contentFit="cover"
+          />
+        ))}
+      </ScrollView>
+      <View style={styles.heroOverlay} />
+      <View style={styles.heroTopBar}>
+        <TouchableOpacity
+          style={styles.heroIconButton}
+          onPress={handleClose}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="chevron-back" size={22} color={palette.surface} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.heroIconButton}
+          onPress={handleShare}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="share-outline" size={20} color={palette.surface} />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.heroBottomContent}>
+        <View style={styles.heroChipRow}>
+          <View style={styles.heroChip}>
+            <Ionicons
+              name="pricetag-outline"
+              size={14}
+              color={palette.surface}
+            />
+            <Text style={styles.heroChipText}>{categoryLabel}</Text>
+          </View>
+          <View
+            style={[
+              styles.statusChip,
+              { backgroundColor: statusVariant.background },
+            ]}
+          >
+            <Ionicons
+              name={statusVariant.icon}
+              size={14}
+              color={statusVariant.textColor}
+            />
+            <Text
+              style={[
+                styles.statusChipText,
+                { color: statusVariant.textColor },
+              ]}
+            >
+              {statusVariant.label}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.heroTitle}>{item?.itemName}</Text>
+        <Text style={styles.heroSubtitle} numberOfLines={1}>
+          {item?.locationFound ?? "Location not specified"}
+        </Text>
+      </View>
+      <View style={styles.heroDotsRow}>
+        {carouselImages.map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.heroDot,
+              index === activeImageIndex ? styles.heroDotActive : null,
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+
   const renderContent = () => (
     <ScrollView
       style={styles.scrollView}
@@ -273,145 +370,146 @@ export default function ItemDetail() {
         />
       }
     >
-      <View style={styles.imagePagerWrapper}>
-        <ScrollView
-          horizontal
-          pagingEnabled
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={(event) => {
-            const index = Math.round(
-              event.nativeEvent.contentOffset.x / Math.max(screenWidth, 1),
-            );
-            setActiveImageIndex(index);
-          }}
-        >
-          {carouselImages.map((uri, index) => (
-            <Image
-              key={`${uri}-${index}`}
-              source={{ uri }}
-              style={[styles.heroImage, { width: screenWidth }]}
-              contentFit="cover"
-            />
-          ))}
-        </ScrollView>
-        <View style={styles.carouselIndicators}>
-          {carouselImages.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.carouselDot,
-                index === activeImageIndex ? styles.carouselDotActive : null,
-              ]}
-            />
-          ))}
-        </View>
-      </View>
+      {renderHero()}
 
-      <View style={styles.sectionCard}>
-        <View style={styles.sectionHeaderRow}>
-          <View style={styles.sectionTitleGroup}>
-            <Text style={styles.itemTitle}>{item?.itemName}</Text>
-            <Text style={styles.itemSubtitle}>{categoryLabel}</Text>
-          </View>
-          <View style={[styles.statusPill, statusTone.pill]}>
-            <Text style={[styles.statusText, statusTone.text]}>
-              {statusLabel}
-            </Text>
+      <View style={styles.bodyContainer}>
+        <View style={styles.card}>
+          <Text style={styles.sectionHeading}>Item snapshot</Text>
+          <View style={styles.infoGrid}>
+            <InfoCell
+              icon="calendar-outline"
+              label="Reported on"
+              value={foundDateLabel || "Not provided"}
+            />
+            <InfoCell
+              icon="locate-outline"
+              label="Coordinates"
+              value={coordinateLabel ?? "Unavailable"}
+              onPress={coordinateLabel ? handleOpenMap : undefined}
+              accentColor={coordinateLabel ? palette.primary : undefined}
+            />
+            <InfoCell
+              icon="information-circle-outline"
+              label="Status"
+              value={statusVariant.label}
+            />
+            <InfoCell
+              icon="layers-outline"
+              label="Category"
+              value={categoryLabel}
+            />
           </View>
         </View>
-        {foundDateLabel ? (
-          <View style={styles.metaRow}>
-            <Ionicons
-              name="calendar-outline"
-              size={18}
-              color={palette.textSecondary}
-            />
-            <Text style={styles.metaValue}>Reported on {foundDateLabel}</Text>
-          </View>
-        ) : null}
-        {item?.locationFound ? (
-          <View style={styles.metaRow}>
-            <Ionicons
-              name="location-outline"
-              size={18}
-              color={palette.textSecondary}
-            />
-            <Text style={styles.metaValue}>{item.locationFound}</Text>
-          </View>
-        ) : null}
-        {coordinateLabel ? (
-          <TouchableOpacity
-            style={styles.metaRow}
-            onPress={handleOpenMap}
-            activeOpacity={0.85}
-          >
-            <Ionicons
-              name="map-outline"
-              size={18}
-              color={palette.textSecondary}
-            />
-            <Text style={[styles.metaValue, styles.linkText]}>
-              {coordinateLabel} (View map)
-            </Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
 
-      {item?.description ? (
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionHeading}>Description</Text>
-          <Text
-            style={styles.bodyText}
-            numberOfLines={isDescriptionExpanded ? undefined : 3}
-          >
-            {item.description}
-          </Text>
-          {item.description.length > 160 ? (
+        {item?.description ? (
+          <View style={styles.card}>
+            <Text style={styles.sectionHeading}>Description</Text>
+            <Text
+              style={styles.bodyText}
+              numberOfLines={isDescriptionExpanded ? undefined : 4}
+            >
+              {item.description}
+            </Text>
+            {item.description.length > 200 ? (
+              <TouchableOpacity
+                onPress={() => setDescriptionExpanded((prev) => !prev)}
+                style={styles.toggleDescriptionButton}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.toggleDescriptionText}>
+                  {isDescriptionExpanded ? "See less" : "See more"}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionHeading}>People involved</Text>
+          <PersonRow
+            title="Reported by"
+            person={item?.postedBy}
+            fallbackLabel="Awaiting reporter details"
+            icon="person-circle-outline"
+          />
+          <View style={styles.personDivider} />
+          <PersonRow
+            title="Claimed by"
+            person={item?.claimedBy}
+            fallbackLabel="No one has claimed this yet"
+            icon="ribbon-outline"
+          />
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.sectionHeading}>Quick actions</Text>
+          <View style={styles.actionsRow}>
             <TouchableOpacity
-              onPress={() => setDescriptionExpanded((prev) => !prev)}
-              style={styles.toggleDescriptionButton}
+              style={[
+                styles.primaryAction,
+                { backgroundColor: palette.primary },
+              ]}
+              onPress={handleOpenMap}
               activeOpacity={0.85}
             >
-              <Text style={styles.toggleDescriptionText}>
-                {isDescriptionExpanded ? "See less" : "See more"}
+              <Ionicons
+                name="navigate-outline"
+                size={18}
+                color={palette.surface}
+              />
+              <Text
+                style={[styles.primaryActionText, { color: palette.surface }]}
+              >
+                Open in Maps
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.secondaryAction, { borderColor: palette.border }]}
+              onPress={handleShare}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="share-outline" size={18} color={palette.text} />
+              <Text style={styles.secondaryActionText}>Share</Text>
+            </TouchableOpacity>
+          </View>
+
+          {isOwner ? (
+            <View style={styles.ownerActionsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.ownerActionButton,
+                  { borderColor: palette.border },
+                ]}
+                onPress={handleEditItem}
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={18}
+                  color={palette.text}
+                />
+                <Text style={styles.ownerActionText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.ownerActionButton, styles.ownerDeleteButton]}
+                onPress={handleDeleteItem}
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={18}
+                  color={palette.surface}
+                />
+                <Text
+                  style={[styles.ownerActionText, { color: palette.surface }]}
+                >
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
           ) : null}
         </View>
-      ) : null}
-
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionHeading}>Actions</Text>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[styles.primaryAction, { backgroundColor: palette.primary }]}
-            onPress={handleOpenMap}
-            activeOpacity={0.85}
-          >
-            <Ionicons
-              name="navigate-outline"
-              size={18}
-              color={palette.surface}
-            />
-            <Text
-              style={[styles.primaryActionText, { color: palette.surface }]}
-            >
-              Open in Maps
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.secondaryAction, { borderColor: palette.border }]}
-            onPress={handleShare}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="share-outline" size={18} color={palette.text} />
-            <Text style={styles.secondaryActionText}>Share</Text>
-          </TouchableOpacity>
-        </View>
       </View>
-
-      <View style={styles.bottomSpacer} />
     </ScrollView>
   );
 
@@ -421,23 +519,6 @@ export default function ItemDetail() {
         barStyle={scheme === "dark" ? "light-content" : "dark-content"}
         backgroundColor={palette.background}
       />
-      <View style={styles.headerBar}>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={handleClose}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="chevron-back" size={22} color={palette.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Item details</Text>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={handleShare}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="share-outline" size={20} color={palette.text} />
-        </TouchableOpacity>
-      </View>
 
       {isLoading ? renderLoader() : null}
       {!isLoading && errorMessage ? renderError() : null}
@@ -446,22 +527,95 @@ export default function ItemDetail() {
   );
 }
 
+type PersonRowProps = {
+  title: string;
+  person: LostItemDetail["postedBy"] | LostItemDetail["claimedBy"];
+  fallbackLabel: string;
+  icon: keyof typeof Ionicons.glyphMap;
+};
+
+function PersonRow({ title, person, fallbackLabel, icon }: PersonRowProps) {
+  const { palette, scheme } = useAppTheme();
+  const styles = useMemo(
+    () => personRowStyles(palette, scheme),
+    [palette, scheme],
+  );
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.avatarWrapper}>
+        {person?.profilePhotoUrl ? (
+          <Image
+            source={{ uri: person.profilePhotoUrl }}
+            style={styles.avatar}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={styles.avatarFallback}>
+            <Ionicons name={icon} size={20} color={palette.surface} />
+          </View>
+        )}
+      </View>
+      <View style={styles.personTextColumn}>
+        <Text style={styles.personTitle}>{title}</Text>
+        <Text style={styles.personValue} numberOfLines={1}>
+          {person?.name ?? fallbackLabel}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+type InfoCellProps = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  onPress?: () => void;
+  accentColor?: string;
+};
+
+function InfoCell({ icon, label, value, onPress, accentColor }: InfoCellProps) {
+  const { palette, scheme } = useAppTheme();
+  const styles = useMemo(
+    () => infoCellStyles(palette, scheme),
+    [palette, scheme],
+  );
+
+  const content = (
+    <View style={styles.container}>
+      <View style={styles.iconBadge}>
+        <Ionicons
+          name={icon}
+          size={16}
+          color={accentColor ?? palette.primary}
+        />
+      </View>
+      <Text style={styles.label}>{label}</Text>
+      <Text
+        style={[styles.value, accentColor ? { color: accentColor } : null]}
+        numberOfLines={2}
+      >
+        {value}
+      </Text>
+    </View>
+  );
+
+  if (!onPress) {
+    return content;
+  }
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+      {content}
+    </TouchableOpacity>
+  );
+}
+
 function formatCategoryLabel(category: ItemCategory): string {
   return category
     .toLowerCase()
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function formatStatusLabel(status: string): string {
-  return (
-    status
-      .toLowerCase()
-      .split(/[_\s-]+/)
-      .filter(Boolean)
-      .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
-      .join(" ") || "Unknown"
-  );
 }
 
 function formatFoundDate(value: string | null): string {
@@ -519,20 +673,46 @@ function buildMapUrl(item: LostItemDetail): string | null {
   return null;
 }
 
-function normalizeStatusTone(
+function resolveStatusVariant(
   status: string | undefined | null,
-): "default" | "available" | "claimed" {
-  if (!status) {
-    return "default";
-  }
-  const normalized = status.toLowerCase();
+  palette: Palette,
+  scheme: "light" | "dark",
+) {
+  const normalized = status?.toLowerCase() ?? "unknown";
   if (normalized === "claimed") {
-    return "claimed";
+    return {
+      label: "Claimed",
+      background:
+        scheme === "dark" ? "rgba(245,166,35,0.28)" : "rgba(245,166,35,0.18)",
+      textColor: scheme === "dark" ? "#ffd48b" : "#b8740a",
+      icon: "ribbon-outline" as const,
+    };
   }
   if (normalized === "available") {
-    return "available";
+    return {
+      label: "Available",
+      background:
+        scheme === "dark" ? "rgba(142,207,128,0.22)" : "rgba(72,187,65,0.18)",
+      textColor: scheme === "dark" ? "#9de38b" : "#2f6b22",
+      icon: "sparkles-outline" as const,
+    };
   }
-  return "default";
+  return {
+    label: status ? formatFallbackStatusLabel(status) : "Unknown",
+    background:
+      scheme === "dark" ? "rgba(255,255,255,0.12)" : "rgba(15,23,42,0.08)",
+    textColor: palette.text,
+    icon: "ellipse-outline" as const,
+  };
+}
+
+function formatFallbackStatusLabel(status: string): string {
+  return status
+    .toLowerCase()
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .join(" ");
 }
 
 function isRequestCancelled(error: unknown): boolean {
@@ -558,165 +738,171 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       flex: 1,
       backgroundColor: palette.background,
     },
-    headerBar: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: 16,
-      paddingBottom: 12,
-      paddingTop: 6,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: palette.border,
-    },
-    headerButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor:
-        scheme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)",
-    },
-    headerTitle: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: palette.text,
-    },
     scrollView: {
       flex: 1,
     },
     scrollContent: {
       paddingBottom: 40,
-      gap: 20,
     },
-    imagePagerWrapper: {
-      backgroundColor: palette.surface,
+    heroContainer: {
+      position: "relative",
+      height: 300,
+      borderBottomLeftRadius: 28,
+      borderBottomRightRadius: 28,
+      overflow: "hidden",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: scheme === "dark" ? 0.4 : 0.18,
+      shadowRadius: 16,
+      elevation: 8,
     },
     heroImage: {
-      height: 260,
+      height: "100%",
     },
-    carouselIndicators: {
-      flexDirection: "row",
-      alignSelf: "center",
-      gap: 6,
-      marginTop: 12,
+    heroOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(0,0,0,0.25)",
     },
-    carouselDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor:
-        scheme === "dark" ? "rgba(255,255,255,0.2)" : "rgba(15,23,42,0.15)",
-    },
-    carouselDotActive: {
-      backgroundColor: palette.primary,
-    },
-    sectionCard: {
-      marginHorizontal: 20,
-      padding: 20,
-      borderRadius: 18,
-      backgroundColor: palette.surface,
-      borderWidth: 1,
-      borderColor: palette.border,
-      shadowColor: "#000",
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: scheme === "dark" ? 0.35 : 0.12,
-      shadowRadius: 10,
-      elevation: 4,
-      gap: 16,
-    },
-    sectionHeaderRow: {
+    heroTopBar: {
+      position: "absolute",
+      top: 16,
+      left: 16,
+      right: 16,
       flexDirection: "row",
       justifyContent: "space-between",
-      gap: 12,
+    },
+    heroIconButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "rgba(0,0,0,0.35)",
       alignItems: "center",
+      justifyContent: "center",
     },
-    sectionTitleGroup: {
-      flex: 1,
-      gap: 4,
+    heroBottomContent: {
+      position: "absolute",
+      left: 20,
+      right: 20,
+      bottom: 36,
+      gap: 10,
     },
-    itemTitle: {
-      fontSize: 22,
-      fontWeight: "700",
-      color: palette.text,
+    heroChipRow: {
+      flexDirection: "row",
+      gap: 10,
+      flexWrap: "wrap",
     },
-    itemSubtitle: {
-      fontSize: 14,
-      color: palette.textSecondary,
-    },
-    statusPill: {
+    heroChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 999,
-      borderWidth: 1,
-      alignSelf: "flex-start",
+      backgroundColor: "rgba(255,255,255,0.15)",
     },
-    statusText: {
-      fontSize: 13,
+    heroChipText: {
+      fontSize: 12,
       fontWeight: "600",
-      textTransform: "capitalize",
+      color: palette.surface,
+      textTransform: "uppercase",
+      letterSpacing: 0.8,
     },
-    statusPillDefault: {
-      backgroundColor:
-        scheme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.05)",
-      borderColor:
-        scheme === "dark" ? "rgba(255,255,255,0.16)" : "rgba(15,23,42,0.1)",
-    },
-    statusPillAvailable: {
-      backgroundColor:
-        scheme === "dark" ? "rgba(142,207,128,0.25)" : "rgba(55,125,34,0.15)",
-      borderColor:
-        scheme === "dark" ? "rgba(142,207,128,0.4)" : "rgba(55,125,34,0.35)",
-    },
-    statusPillClaimed: {
-      backgroundColor:
-        scheme === "dark" ? "rgba(245,166,35,0.28)" : "rgba(245,166,35,0.18)",
-      borderColor:
-        scheme === "dark" ? "rgba(245,166,35,0.45)" : "rgba(245,166,35,0.35)",
-    },
-    statusTextDefault: {
-      color: palette.text,
-    },
-    statusTextAvailable: {
-      color: scheme === "dark" ? "#9de38b" : "#2f6b22",
-    },
-    statusTextClaimed: {
-      color: scheme === "dark" ? "#ffd48b" : "#af6a00",
-    },
-    metaRow: {
+    statusChip: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
+      gap: 6,
+      borderRadius: 999,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
     },
-    metaValue: {
-      flex: 1,
+    statusChipText: {
+      fontSize: 12,
+      fontWeight: "700",
+      textTransform: "uppercase",
+      letterSpacing: 0.8,
+    },
+    heroTitle: {
+      fontSize: 28,
+      fontWeight: "800",
+      color: palette.surface,
+    },
+    heroSubtitle: {
       fontSize: 14,
-      color: palette.text,
+      fontWeight: "500",
+      color: "rgba(255,255,255,0.86)",
     },
-    linkText: {
-      color: palette.primary,
-      fontWeight: "600",
+    heroDotsRow: {
+      position: "absolute",
+      bottom: 12,
+      alignSelf: "center",
+      flexDirection: "row",
+      gap: 6,
+    },
+    heroDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: "rgba(255,255,255,0.4)",
+    },
+    heroDotActive: {
+      backgroundColor: palette.surface,
+      transform: [{ scale: 1.25 }],
+    },
+    bodyContainer: {
+      paddingHorizontal: 20,
+      paddingTop: 24,
+      gap: 20,
+    },
+    card: {
+      backgroundColor: palette.surface,
+      borderRadius: 20,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: palette.border,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: scheme === "dark" ? 0.3 : 0.12,
+      shadowRadius: 12,
+      elevation: 5,
+      gap: 18,
     },
     sectionHeading: {
       fontSize: 16,
       fontWeight: "700",
       color: palette.text,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    },
+    infoGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 12,
     },
     bodyText: {
-      fontSize: 14,
-      lineHeight: 20,
+      fontSize: 15,
+      lineHeight: 22,
       color: palette.text,
+    },
+    toggleDescriptionButton: {
+      alignSelf: "flex-start",
+      marginTop: 6,
+    },
+    toggleDescriptionText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: palette.primary,
     },
     actionsRow: {
       flexDirection: "row",
       gap: 12,
+      flexWrap: "wrap",
     },
     primaryAction: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
-      borderRadius: 14,
+      borderRadius: 16,
       paddingHorizontal: 18,
       paddingVertical: 12,
       flex: 1,
@@ -730,7 +916,7 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
-      borderRadius: 14,
+      borderRadius: 16,
       paddingHorizontal: 18,
       paddingVertical: 12,
       flex: 1,
@@ -742,14 +928,35 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       fontWeight: "600",
       color: palette.text,
     },
-    toggleDescriptionButton: {
-      alignSelf: "flex-start",
-      marginTop: 8,
+    ownerActionsRow: {
+      flexDirection: "row",
+      gap: 12,
+      marginTop: 12,
     },
-    toggleDescriptionText: {
-      fontSize: 14,
+    ownerActionButton: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderRadius: 16,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderWidth: 1,
+      backgroundColor: palette.surface,
+    },
+    ownerActionText: {
+      fontSize: 15,
       fontWeight: "600",
-      color: palette.primary,
+      color: palette.text,
+    },
+    ownerDeleteButton: {
+      backgroundColor: palette.danger,
+      borderColor: palette.danger,
+    },
+    personDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: palette.border,
     },
     centerState: {
       flex: 1,
@@ -783,7 +990,89 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       fontWeight: "600",
       color: palette.surface,
     },
-    bottomSpacer: {
-      height: 20,
+  });
+
+const personRowStyles = (palette: Palette, scheme: "light" | "dark") =>
+  StyleSheet.create({
+    container: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    avatarWrapper: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      overflow: "hidden",
+      backgroundColor:
+        scheme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.08)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    avatar: {
+      width: "100%",
+      height: "100%",
+    },
+    avatarFallback: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: palette.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    personTextColumn: {
+      flex: 1,
+      gap: 4,
+    },
+    personTitle: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: palette.textSecondary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
+    personValue: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: palette.text,
+    },
+  });
+
+const infoCellStyles = (palette: Palette, scheme: "light" | "dark") =>
+  StyleSheet.create({
+    container: {
+      flexBasis: "48%",
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: palette.border,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      gap: 6,
+      backgroundColor:
+        scheme === "dark" ? "rgba(17,24,39,0.85)" : "rgba(248,250,252,0.96)",
+    },
+    iconBadge: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor:
+        scheme === "dark"
+          ? "rgba(99, 102, 241, 0.18)"
+          : "rgba(59,130,246,0.16)",
+    },
+    label: {
+      fontSize: 12,
+      fontWeight: "600",
+      color: palette.textSecondary,
+      textTransform: "uppercase",
+      letterSpacing: 0.6,
+    },
+    value: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: palette.text,
     },
   });

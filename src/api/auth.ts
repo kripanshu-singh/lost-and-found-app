@@ -47,6 +47,7 @@ export interface LoginResponse {
 export interface RefreshResponseData {
     accessToken: string;
     refreshToken: string;
+    [key: string]: unknown;
 }
 
 export interface RefreshPayload {
@@ -94,6 +95,11 @@ function resolveMimeType(uri: string) {
 }
 
 export async function registerUser(payload: RegisterPayload): Promise<RegisterResponse> {
+    console.log("[auth] registerUser: sending request", {
+        email: payload.email,
+        hasProfilePhoto: Boolean(payload.profilePhotoUri),
+    });
+
     const formData = new FormData();
     formData.append("name", payload.name);
     formData.append("email", payload.email);
@@ -107,26 +113,63 @@ export async function registerUser(payload: RegisterPayload): Promise<RegisterRe
         } as unknown as Blob);
     }
 
-    const response = await httpClient.post<RegisterResponse>("/api/users/register", formData, {
-        headers: {
-            "Content-Type": "multipart/form-data",
-        },
-    });
+    try {
+        const response = await httpClient.post<RegisterResponse>("/api/auth/register", formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
 
-    return response.data;
+        console.log("[auth] registerUser: response received", {
+            success: response.data.success,
+            message: response.data.message,
+        });
+
+        return response.data;
+    } catch (error) {
+        console.log("[auth] registerUser: request failed", {
+            email: payload.email,
+            error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+    }
 }
 
 export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
-    const response = await httpClient.post<LoginResponse>("/api/auth/login", payload, {
-        headers: {
-            "Content-Type": "application/json",
-        },
+    console.log("[auth] loginUser: sending request", {
+        email: payload.email,
     });
 
-    return response.data;
+    try {
+        const response = await httpClient.post<LoginResponse>("/api/auth/login", payload, {
+            headers: {
+                "Content-Type": "application/json",
+            },
+        });
+
+        console.log("[auth] loginUser: response received", {
+            success: response.data.success,
+            message: response.data.message,
+        });
+
+        return response.data;
+    } catch (error) {
+        console.log("[auth] loginUser: request failed", {
+            email: payload.email,
+            error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+    }
 }
 
 export async function refreshTokens(payload: RefreshPayload): Promise<RefreshResponse> {
+    const maskedToken = payload.refreshToken
+        ? `${payload.refreshToken.slice(0, 6)}...${payload.refreshToken.slice(-4)}`
+        : "";
+    console.log("[auth] refreshTokens: sending request", {
+        refreshToken: maskedToken,
+    });
+
     const config: HttpRequestConfig = {
         headers: {
             "Content-Type": "application/json",
@@ -134,12 +177,32 @@ export async function refreshTokens(payload: RefreshPayload): Promise<RefreshRes
         skipAuth: true,
     };
 
-    const response = await httpClient.post<RefreshResponse>("/api/auth/refresh", payload, config);
+    try {
+        const response = await httpClient.post<RefreshResponse>("/api/auth/refresh", payload, config);
 
-    return response.data;
+        console.log("[auth] refreshTokens: response received", {
+            success: response.data.success,
+            message: response.data.message,
+        });
+
+        return response.data;
+    } catch (error) {
+        console.log("[auth] refreshTokens: request failed", {
+            refreshToken: maskedToken,
+            error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+    }
 }
 
 export async function logoutUser(payload: LogoutPayload): Promise<LogoutResponse> {
+    const maskedToken = payload.refreshToken
+        ? `${payload.refreshToken.slice(0, 6)}...${payload.refreshToken.slice(-4)}`
+        : "";
+    console.log("[auth] logoutUser: sending request", {
+        refreshToken: maskedToken,
+    });
+
     const config: HttpRequestConfig = {
         headers: {
             "Content-Type": "application/json",
@@ -147,7 +210,20 @@ export async function logoutUser(payload: LogoutPayload): Promise<LogoutResponse
         skipAuth: true,
     };
 
-    const response = await httpClient.post<LogoutResponse>("/api/auth/logout", payload, config);
+    try {
+        const response = await httpClient.post<LogoutResponse>("/api/auth/logout", payload, config);
 
-    return response.data;
+        console.log("[auth] logoutUser: response received", {
+            success: response.data.success,
+            message: response.data.message,
+        });
+
+        return response.data;
+    } catch (error) {
+        console.log("[auth] logoutUser: request failed", {
+            refreshToken: maskedToken,
+            error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+    }
 }

@@ -22,7 +22,8 @@ import { ApiError, setAccessToken } from "../../../src/api/httpClient";
 import { SessionError } from "../../../src/api/session";
 import {
   getCurrentUser,
-  type CurrentUserResponseData,
+  normalizeUserProfile,
+  type NormalizedUserProfile,
 } from "../../../src/api/users";
 import { useAuth } from "../../../src/auth/AuthProvider";
 import { Palette, useAppTheme } from "../../../src/theme";
@@ -75,6 +76,7 @@ const Login = () => {
 
   const handleLogin = async () => {
     if (isSubmitting) {
+      console.log("[Login] handleLogin skipped (already submitting)");
       return;
     }
 
@@ -83,11 +85,20 @@ const Login = () => {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPassword = password.trim();
 
+    console.log("[Login] handleLogin start", {
+      email: trimmedEmail,
+      hasPassword: Boolean(trimmedPassword),
+    });
+
     if (trimmedEmail !== email) {
       setEmail(trimmedEmail);
     }
 
     if (!trimmedEmail || !trimmedPassword) {
+      console.log("[Login] missing credentials", {
+        hasEmail: Boolean(trimmedEmail),
+        hasPassword: Boolean(trimmedPassword),
+      });
       setErrorMessage("Enter both email and password to continue.");
       return;
     }
@@ -96,9 +107,17 @@ const Login = () => {
     setErrorMessage(null);
 
     try {
+      console.log("[Login] calling loginUser", { email: trimmedEmail });
+
       const response = await loginUser({
         email: trimmedEmail,
         password: trimmedPassword,
+      });
+
+      console.log("[Login] loginUser response", {
+        success: response.success,
+        message: response.message,
+        hasData: Boolean(response.data),
       });
 
       const loginData =
@@ -110,6 +129,10 @@ const Login = () => {
           : null;
 
       if (!response.success || !loginData) {
+        console.log("[Login] loginUser validation failed", {
+          success: response.success,
+          normalized: Boolean(loginData),
+        });
         const fieldErrors = collectFieldErrors(response.data);
         setErrorMessage(
           fieldErrors || response.message || "We could not sign you in.",
@@ -119,38 +142,66 @@ const Login = () => {
 
       setAccessToken(loginData.accessToken);
 
-      let currentUser: CurrentUserResponseData;
+      let currentUser: NormalizedUserProfile | null =
+        normalizeUserProfile(loginData);
 
-      try {
-        const meResponse = await getCurrentUser();
-        const meData =
-          meResponse.success &&
-          meResponse.data &&
-          !Array.isArray(meResponse.data) &&
-          typeof meResponse.data === "object"
-            ? (meResponse.data as CurrentUserResponseData)
-            : null;
+      console.log("[Login] normalized login payload", {
+        fromLoginPayload: Boolean(currentUser),
+        userId: currentUser?.userId,
+      });
 
-        if (
-          !meResponse.success ||
-          !meData ||
-          typeof meData.userId !== "number" ||
-          typeof meData.name !== "string" ||
-          typeof meData.email !== "string"
-        ) {
-          throw new ApiError(
-            meResponse.message || "Unable to load your account",
-            { data: meResponse.data },
-          );
+      if (!currentUser) {
+        console.log("[Login] fetching /api/users/me for fallback profile");
+        try {
+          const meResponse = await getCurrentUser();
+
+          console.log("[Login] /api/users/me response", {
+            success: meResponse.success,
+            message: meResponse.message,
+            hasData: Boolean(meResponse.data),
+          });
+
+          if (!meResponse.success) {
+            throw new ApiError(
+              meResponse.message || "Unable to load your account",
+              { data: meResponse.data },
+            );
+          }
+
+          currentUser = normalizeUserProfile(meResponse.data);
+
+          if (!currentUser) {
+            console.log("[Login] normalizeUserProfile failed on /me payload", {
+              keys:
+                meResponse.data && typeof meResponse.data === "object"
+                  ? Object.keys(meResponse.data)
+                  : null,
+            });
+            throw new ApiError(
+              meResponse.message || "Unable to load your account",
+              { data: meResponse.data },
+            );
+          }
+        } catch (error) {
+          console.log("[Login] getCurrentUser error", {
+            error: error instanceof Error ? error.message : error,
+          });
+          setAccessToken(null);
+          throw error instanceof ApiError
+            ? error
+            : new ApiError("Unable to load your account", { cause: error });
         }
-
-        currentUser = meData;
-      } catch (error) {
-        setAccessToken(null);
-        throw error instanceof ApiError
-          ? error
-          : new ApiError("Unable to load your account", { cause: error });
       }
+
+      if (!currentUser) {
+        console.log("[Login] normalization failed after fallback");
+        throw new ApiError("Unable to load your account");
+      }
+
+      console.log("[Login] persisting session", {
+        userId: currentUser.userId,
+        email: currentUser.email,
+      });
 
       await persistSession({
         accessToken: loginData.accessToken,
@@ -158,14 +209,17 @@ const Login = () => {
         userId: currentUser.userId,
         name: currentUser.name,
         email: currentUser.email,
-        profilePhoto:
-          typeof currentUser.profilePhoto === "string"
-            ? currentUser.profilePhoto
-            : null,
+        profilePhoto: currentUser.profilePhoto,
       });
+
       setPassword("");
+      console.log("[Login] navigation to Landing");
       router.replace("/screens/home/Landing");
     } catch (error) {
+      console.log("[Login] handleLogin error", {
+        email: trimmedEmail,
+        error: error instanceof Error ? error.message : error,
+      });
       setAccessToken(null);
       const message =
         error instanceof ApiError
@@ -180,13 +234,16 @@ const Login = () => {
   };
 
   const handleForgotPassword = () => {
+    console.log("[Login] handleForgotPassword tapped");
     // TODO: Navigate to password recovery flow.
   };
 
   const handleCreateAccount = () => {
     if (isSubmitting) {
+      console.log("[Login] handleCreateAccount blocked (submitting)");
       return;
     }
+    console.log("[Login] navigating to Register");
     router.push("/screens/auth/Register");
   };
 

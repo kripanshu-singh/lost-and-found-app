@@ -27,7 +27,7 @@ import {
   saveSession,
   SessionError,
 } from "../api/session";
-import { getCurrentUser, type CurrentUserResponseData } from "../api/users";
+import { getCurrentUser, normalizeUserProfile } from "../api/users";
 import { useAppTheme } from "../theme";
 
 interface AuthContextValue {
@@ -53,19 +53,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     async function hydrate() {
+      console.log("[AuthProvider] hydrate start");
       try {
         const existing = await loadSession();
         if (isMounted) {
           setSessionState(existing);
           sessionRef.current = existing;
+          console.log("[AuthProvider] hydrate resolved", {
+            hasSession: Boolean(existing),
+            userId: existing?.userId,
+          });
         }
       } catch (error) {
         if (__DEV__) {
           console.warn("auth-hydrate", error);
         }
+        console.log("[AuthProvider] hydrate error", {
+          error: error instanceof Error ? error.message : error,
+        });
       } finally {
         if (isMounted) {
           setIsHydrating(false);
+          console.log("[AuthProvider] hydrate complete");
         }
       }
     }
@@ -94,18 +103,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isHydrating, router, session, segments]);
 
   const persistSession = useCallback(async (next: AuthSession) => {
+    console.log("[AuthProvider] persistSession", {
+      userId: next.userId,
+      email: next.email,
+    });
     await saveSession(next);
     setSessionState(next);
     sessionRef.current = next;
   }, []);
 
   const clearSession = useCallback(async () => {
+    console.log("[AuthProvider] clearSession invoked");
     await clearPersistedSession();
     setSessionState(null);
     sessionRef.current = null;
   }, []);
 
   const logout = useCallback(async () => {
+    console.log("[AuthProvider] logout start");
     const refreshToken = sessionRef.current?.refreshToken;
 
     try {
@@ -130,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log("auth-logout: clearing session");
       }
       await clearSession();
+      console.log("[AuthProvider] logout complete");
       if (__DEV__) {
         console.log("auth-logout: complete");
       }
@@ -137,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession]);
 
   const performRefresh = useCallback(async () => {
+    console.log("[AuthProvider] performRefresh start");
     let current = sessionRef.current;
 
     if (!current) {
@@ -155,6 +172,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const previousAccessToken = current?.accessToken ?? null;
 
     try {
+      console.log("[AuthProvider] requesting refresh", {
+        hasRefreshToken: Boolean(current?.refreshToken),
+        userId: current?.userId,
+      });
       const response = await refreshTokens({
         refreshToken: current.refreshToken,
       });
@@ -176,38 +197,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setAccessToken(refreshData.accessToken);
 
-      const meResponse = await getCurrentUser();
-      const meData =
-        meResponse.success &&
-        meResponse.data &&
-        !Array.isArray(meResponse.data) &&
-        typeof meResponse.data === "object"
-          ? (meResponse.data as CurrentUserResponseData)
-          : null;
+      const fromRefreshPayload = normalizeUserProfile(refreshData);
+      const fromResponseData = normalizeUserProfile(response.data);
+      const persistedProfile = normalizeUserProfile(sessionRef.current);
+      let resolvedProfile =
+        fromRefreshPayload ?? fromResponseData ?? persistedProfile;
 
-      if (
-        !meResponse.success ||
-        !meData ||
-        typeof meData.userId !== "number" ||
-        typeof meData.name !== "string" ||
-        typeof meData.email !== "string"
-      ) {
-        throw new ApiError(
-          meResponse.message || "Unable to load account details",
-          {
-            data: meResponse.data,
-          },
-        );
+      console.log("[AuthProvider] refresh resolved profile", {
+        fromRefreshPayload: Boolean(fromRefreshPayload),
+        fromResponseData: Boolean(fromResponseData),
+        fromPersisted: Boolean(persistedProfile),
+      });
+
+      if (!resolvedProfile) {
+        try {
+          const meResponse = await getCurrentUser();
+
+          if (!meResponse.success) {
+            throw new ApiError(
+              meResponse.message || "Unable to load account details",
+              {
+                data: meResponse.data,
+              },
+            );
+          }
+
+          resolvedProfile = normalizeUserProfile(meResponse.data);
+
+          if (!resolvedProfile) {
+            throw new ApiError(
+              meResponse.message || "Unable to load account details",
+              {
+                data: meResponse.data,
+              },
+            );
+          }
+        } catch (error) {
+          console.log("[AuthProvider] getCurrentUser during refresh failed", {
+            error: error instanceof Error ? error.message : error,
+          });
+          if (persistedProfile) {
+            resolvedProfile = persistedProfile;
+          } else {
+            throw error instanceof ApiError
+              ? error
+              : new ApiError("Unable to load account details", {
+                  cause: error,
+                });
+          }
+        }
+      }
+
+      if (!resolvedProfile) {
+        console.log("[AuthProvider] refresh failed to resolve profile");
+        throw new ApiError("Unable to load account details", {
+          data: response.data,
+        });
       }
 
       const normalizedSession: AuthSession = {
         accessToken: refreshData.accessToken,
         refreshToken: refreshData.refreshToken,
-        userId: meData.userId,
-        name: meData.name,
-        email: meData.email,
-        profilePhoto:
-          typeof meData.profilePhoto === "string" ? meData.profilePhoto : null,
+        userId: resolvedProfile.userId,
+        name: resolvedProfile.name,
+        email: resolvedProfile.email,
+        profilePhoto: resolvedProfile.profilePhoto,
       };
 
       await saveSession(normalizedSession);
@@ -234,7 +288,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshSession = useCallback(async () => {
-    return performRefresh();
+    console.log("[AuthProvider] refreshSession triggered");
+    const session = await performRefresh();
+    console.log("[AuthProvider] refreshSession complete", {
+      refreshed: Boolean(session),
+      userId: session?.userId,
+    });
+    return session;
   }, [performRefresh]);
 
   useEffect(() => {

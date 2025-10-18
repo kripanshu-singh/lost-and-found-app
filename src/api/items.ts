@@ -30,8 +30,14 @@ export interface LostItemSummary {
     dateFound: string | null;
     status: ItemStatus;
     category: ItemCategory;
-    postedByUserId: number;
-    claimedByUserId: number | null;
+    postedByUserId?: number;
+    claimedByUserId?: number | null;
+}
+
+export interface ItemPersonReference {
+    id: number;
+    name: string;
+    profilePhotoUrl?: string | null;
 }
 
 export interface PagedLostItems {
@@ -115,6 +121,11 @@ function resolveMimeType(uri: string): string {
 export async function reportLostItem(
     payload: ReportLostItemPayload,
 ): Promise<ReportLostItemResponse> {
+    console.log("[itemsApi] reportLostItem start", {
+        itemName: payload.itemName,
+        category: payload.category,
+        hasImages: Boolean(payload.imageUris?.length),
+    });
     const formData = new FormData();
 
     formData.append("itemName", payload.itemName.trim());
@@ -136,18 +147,19 @@ export async function reportLostItem(
     }
 
     payload.imageUris?.slice(0, 5).forEach((uri, index) => {
+        const name = extractFileName(uri, "item-image", index);
+        const type = resolveMimeType(uri);
         const file = {
             uri,
-            name: extractFileName(uri, "item-image", index),
-            type: resolveMimeType(uri),
+            name,
+            type,
         } as unknown as Blob;
-        console.log(`\n ~ reportLostItem ~ file :- `, file);
-        console.log(`\n ~ reportLostItem ~ index :- `, index);
-
-        // if (index === 0) {
+        console.log("[itemsApi] reportLostItem attach image", {
+            index,
+            name,
+            type,
+        });
         formData.append("images", file);
-        // }
-        // formData.append("images[]", file);
     });
 
     const config: HttpRequestConfig = {
@@ -156,19 +168,35 @@ export async function reportLostItem(
         },
     };
 
-    const response = await httpClient.post<ReportLostItemResponse>(
-        "/api/items/report",
-        formData,
-        config,
-    );
+    try {
+        const response = await httpClient.post<ReportLostItemResponse>(
+            "/api/items/report",
+            formData,
+            config,
+        );
 
-    return response.data;
+        console.log("[itemsApi] reportLostItem response", {
+            success: response.data?.success,
+            message: response.data?.message,
+        });
+
+        return response.data;
+    } catch (error) {
+        console.log("[itemsApi] reportLostItem error", {
+            itemName: payload.itemName,
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
 }
 
 export async function fetchLostItems(
     params: FetchLostItemsParams = {},
     config?: HttpRequestConfig,
 ): Promise<PagedLostItems> {
+    console.log("[itemsApi] fetchLostItems start", {
+        params,
+    });
     const requestConfig: HttpRequestConfig = {
         ...(config ?? {}),
         params: {
@@ -177,17 +205,34 @@ export async function fetchLostItems(
         },
     };
 
-    const response = await httpClient.get<LostItemsApiResponse>("/api/items", requestConfig);
-    const payload = response.data;
+    try {
+        const response = await httpClient.get<LostItemsApiResponse>("/api/items", requestConfig);
+        const payload = response.data;
 
-    if (!payload.success || !payload.data) {
-        throw new ApiError(payload.message || payload.error || "Unable to fetch items.", {
-            status: response.status,
-            data: payload,
+        if (!payload.success || !payload.data) {
+            console.log("[itemsApi] fetchLostItems failed", {
+                status: response.status,
+                message: payload.message,
+                error: payload.error,
+            });
+            throw new ApiError(payload.message || payload.error || "Unable to fetch items.", {
+                status: response.status,
+                data: payload,
+            });
+        }
+
+        console.log("[itemsApi] fetchLostItems success", {
+            total: payload.data.totalElements,
+            page: payload.data.page,
         });
-    }
 
-    return payload.data;
+        return payload.data;
+    } catch (error) {
+        console.log("[itemsApi] fetchLostItems error", {
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
 }
 
 type RecentlyReportedApiResponse = {
@@ -204,23 +249,41 @@ export async function fetchRecentlyReported(
         ...(config ?? {}),
     };
 
-    const response = await httpClient.get<RecentlyReportedApiResponse>(
-        "/api/items/recently-reported",
-        requestConfig,
-    );
-    const payload = response.data;
+    console.log("[itemsApi] fetchRecentlyReported start");
 
-    if (!payload.success || !payload.data) {
-        throw new ApiError(
-            payload.message || payload.error || "Unable to fetch recently reported items.",
-            {
-                status: response.status,
-                data: payload,
-            },
+    try {
+        const response = await httpClient.get<RecentlyReportedApiResponse>(
+            "/api/items/recently-reported",
+            requestConfig,
         );
-    }
+        const payload = response.data;
 
-    return payload.data;
+        if (!payload.success || !payload.data) {
+            console.log("[itemsApi] fetchRecentlyReported failed", {
+                status: response.status,
+                message: payload.message,
+                error: payload.error,
+            });
+            throw new ApiError(
+                payload.message || payload.error || "Unable to fetch recently reported items.",
+                {
+                    status: response.status,
+                    data: payload,
+                },
+            );
+        }
+
+        console.log("[itemsApi] fetchRecentlyReported success", {
+            count: payload.data.length,
+        });
+
+        return payload.data;
+    } catch (error) {
+        console.log("[itemsApi] fetchRecentlyReported error", {
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
 }
 
 export interface LostItemDetail extends LostItemSummary {
@@ -229,6 +292,8 @@ export interface LostItemDetail extends LostItemSummary {
     reportedByName?: string | null;
     reportedByEmail?: string | null;
     reportedByPhone?: string | null;
+    postedBy?: ItemPersonReference;
+    claimedBy?: ItemPersonReference | null;
 }
 
 type ItemDetailApiResponse = {
@@ -246,18 +311,40 @@ export async function fetchLostItemById(
         ...(config ?? {}),
     };
 
-    const response = await httpClient.get<ItemDetailApiResponse>(
-        `/api/items/${id}`,
-        requestConfig,
-    );
-    const payload = response.data;
+    console.log("[itemsApi] fetchLostItemById start", { id });
 
-    if (!payload.success || !payload.data) {
-        throw new ApiError(payload.message || payload.error || "Unable to fetch item details.", {
-            status: response.status,
-            data: payload,
+    try {
+        const response = await httpClient.get<ItemDetailApiResponse>(
+            `/api/items/${id}`,
+            requestConfig,
+        );
+        const payload = response.data;
+
+        if (!payload.success || !payload.data) {
+            console.log("[itemsApi] fetchLostItemById failed", {
+                id,
+                status: response.status,
+                message: payload.message,
+                error: payload.error,
+            });
+            throw new ApiError(payload.message || payload.error || "Unable to fetch item details.", {
+                status: response.status,
+                data: payload,
+            });
+        }
+
+        console.log("[itemsApi] fetchLostItemById success", {
+            id,
+            status: payload.data.status,
+            category: payload.data.category,
         });
-    }
 
-    return payload.data;
+        return payload.data;
+    } catch (error) {
+        console.log("[itemsApi] fetchLostItemById error", {
+            id,
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
 }
