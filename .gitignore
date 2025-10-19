@@ -43,5 +43,6 @@ app-example
 /android
 
 .env
-google-services.json
-GoogleService-Info.plist
+# google-services.json
+# google-services-OLD.json
+# GoogleService-Info.plist
