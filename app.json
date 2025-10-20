@@ -8,7 +8,7 @@
     "scheme": "lostandfoundapp",
     "userInterfaceStyle": "automatic",
     "extra": {
-      "apiBaseUrl": "http://10.0.2.2:8080",
+      "apiBaseUrl": "http://192.168.29.123:8080",
       "router": {},
       "eas": {
         "projectId": "ef95ba73-0bbc-4c11-ad7f-50f9d1267458"
@@ -49,11 +49,15 @@
           }
         }
       ],
-      "expo-secure-store"
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    }
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ]
   }
 }
