@@ -1,4 +1,4 @@
-import { httpClient } from "./httpClient";
+import { ApiError, httpClient, type HttpRequestConfig } from "./httpClient";
 
 export interface CurrentUserResponseData {
     userId?: number | string;
@@ -39,6 +39,30 @@ export interface NormalizedUserProfile {
     name: string;
     email: string;
     profilePhoto: string | null;
+}
+
+export interface UserKpis {
+    itemsReported: number;
+    itemsClaimed: number;
+    activeAlerts: number;
+}
+
+export interface UserKpisResponse {
+    success: boolean;
+    message?: string;
+    data?: unknown;
+    error?: string;
+}
+
+function coerceNumber(value: unknown): number {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+    if (typeof value === "string") {
+        const parsed = Number(value.trim());
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
 }
 
 export function normalizeUserProfile(payload: unknown): NormalizedUserProfile | null {
@@ -207,6 +231,58 @@ export async function updateUserFcmToken(fcmToken: string | null): Promise<Updat
         return response.data;
     } catch (error) {
         console.log("[usersApi] updateUserFcmToken: request failed", {
+            error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+    }
+}
+
+export async function fetchUserKpis(
+    config?: HttpRequestConfig,
+): Promise<UserKpis> {
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+    };
+
+    console.log("[usersApi] fetchUserKpis: sending request");
+
+    try {
+        const response = await httpClient.get<UserKpisResponse>(
+            "/api/users/me/kpis",
+            requestConfig,
+        );
+
+        const payload = response.data;
+
+        if (!payload.success || !payload.data || typeof payload.data !== "object") {
+            console.log("[usersApi] fetchUserKpis: failed", {
+                status: response.status,
+                message: payload.message,
+                error: payload.error,
+            });
+            throw new ApiError(payload.message || payload.error || "Unable to load KPIs.", {
+                status: response.status,
+                data: payload,
+            });
+        }
+
+        const record = payload.data as Record<string, unknown>;
+
+        const normalized: UserKpis = {
+            itemsReported: coerceNumber(record.itemsReported ?? record.totalReported ?? 0),
+            itemsClaimed: coerceNumber(record.itemsClaimed ?? record.claimedCount ?? 0),
+            activeAlerts: coerceNumber(record.activeAlerts ?? record.alertsActive ?? 0),
+        };
+
+        console.log("[usersApi] fetchUserKpis: success", {
+            itemsReported: normalized.itemsReported,
+            itemsClaimed: normalized.itemsClaimed,
+            activeAlerts: normalized.activeAlerts,
+        });
+
+        return normalized;
+    } catch (error) {
+        console.log("[usersApi] fetchUserKpis: request failed", {
             error: error instanceof Error ? error.message : String(error),
         });
         throw error;

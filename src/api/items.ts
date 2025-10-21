@@ -115,6 +115,150 @@ type LostItemsApiResponse = {
     error?: string;
 };
 
+type MyReportedItemsApiResponse = {
+    success: boolean;
+    message?: string;
+    data?: unknown;
+    error?: string;
+};
+
+function coerceNumber(value: unknown): number | null {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+    if (typeof value === "string") {
+        const parsed = Number(value.trim());
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+}
+
+function coerceString(value: unknown): string | null {
+    if (typeof value !== "string") {
+        return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+
+export function normalizeItemCategory(category: unknown): ItemCategory {
+    if (typeof category !== "string") {
+        return "OTHER";
+    }
+
+    const normalized = category.trim().toUpperCase();
+
+    switch (normalized) {
+        case "PHONE":
+            return "PHONE";
+        case "WALLET":
+            return "WALLET";
+        case "KEYS":
+        case "KEY":
+            return "KEYS";
+        case "BAG":
+        case "BACKPACK":
+            return "BAG";
+        case "ELECTRONIC":
+        case "ELECTRONICS":
+        case "LAPTOP":
+        case "GADGET":
+            return "ELECTRONIC";
+        case "CLOTHING":
+        case "APPAREL":
+            return "CLOTHING";
+        case "STATIONERY":
+        case "STATIONARY":
+        case "SUPPLIES":
+            return "STATIONERY";
+        case "DOCUMENT":
+        case "DOCUMENTS":
+        case "ID":
+        case "IDENTITY":
+            return "DOCUMENT";
+        case "OTHER":
+            return "OTHER";
+        default:
+            return "OTHER";
+    }
+}
+
+function normalizeImages(value: unknown): string[] {
+    const candidates: unknown[] = [];
+
+    if (Array.isArray(value)) {
+        candidates.push(...value);
+    } else if (value && typeof value === "object") {
+        const record = value as Record<string, unknown>;
+        const nestedImages = record.images ?? record.imageUrls ?? record.photos;
+        if (Array.isArray(nestedImages)) {
+            candidates.push(...nestedImages);
+        }
+    }
+
+    const resolved = candidates
+        .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+        .map((uri) => uri.trim());
+
+    return resolved.length > 0 ? resolved : [];
+}
+
+function normalizeLostItemSummary(raw: unknown): LostItemSummary | null {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return null;
+    }
+
+    const record = raw as Record<string, unknown>;
+
+    const id = coerceNumber(record.id ?? record.itemId ?? record.reportId);
+    const itemName = coerceString(record.itemName ?? record.title ?? record.name);
+
+    if (id === null || !itemName) {
+        return null;
+    }
+
+    const description = coerceString(record.description ?? record.details);
+    const locationFound = coerceString(record.locationFound ?? record.location);
+    const latitude = coerceNumber(record.latitude);
+    const longitude = coerceNumber(record.longitude);
+    const dateFound = coerceString(record.dateFound ?? record.dateLost ?? record.createdAt);
+
+    const rawStatus = coerceString(record.status ?? record.state) ?? "UNKNOWN";
+    const category = normalizeItemCategory(record.category ?? record.itemCategory);
+
+    const postedBySource = record.postedBy ?? record.reportedBy ?? record.user;
+    const claimedBySource = record.claimedBy ?? record.claimer;
+
+    const postedByUserId = coerceNumber(
+        (postedBySource && typeof postedBySource === "object"
+            ? (postedBySource as Record<string, unknown>).id
+            : undefined) ?? record.postedByUserId,
+    );
+
+    const claimedByUserId = coerceNumber(
+        (claimedBySource && typeof claimedBySource === "object"
+            ? (claimedBySource as Record<string, unknown>).id
+            : undefined) ?? record.claimedByUserId,
+    );
+
+    const images = normalizeImages(record.images ?? record.imageUrls ?? record.photos);
+
+    return {
+        id,
+        itemName,
+        description,
+        locationFound,
+        latitude: latitude ?? null,
+        longitude: longitude ?? null,
+        images,
+        dateFound,
+        status: rawStatus,
+        category,
+        postedByUserId: postedByUserId ?? undefined,
+        claimedByUserId: claimedByUserId ?? undefined,
+    };
+}
+
 function extractFileName(uri: string, fallback: string, index: number) {
     const segments = uri.split(/[/\\]/);
     const last = segments.pop() ?? `${fallback}-${index + 1}`;
@@ -252,6 +396,54 @@ export async function fetchLostItems(
         return payload.data;
     } catch (error) {
         console.log("[itemsApi] fetchLostItems error", {
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
+}
+
+export async function fetchMyReportedItems(
+    config?: HttpRequestConfig,
+): Promise<LostItemSummary[]> {
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+    };
+
+    console.log("[itemsApi] fetchMyReportedItems start");
+
+    try {
+        const response = await httpClient.get<MyReportedItemsApiResponse>(
+            "/api/items/my-reported-items",
+            requestConfig,
+        );
+        const payload = response.data;
+
+        if (!payload.success || !Array.isArray(payload.data)) {
+            console.log("[itemsApi] fetchMyReportedItems failed", {
+                status: response.status,
+                message: payload.message,
+                error: payload.error,
+            });
+            throw new ApiError(
+                payload.message || payload.error || "Unable to load reported items.",
+                {
+                    status: response.status,
+                    data: payload,
+                },
+            );
+        }
+
+        const normalized = payload.data
+            .map((entry) => normalizeLostItemSummary(entry))
+            .filter((entry): entry is LostItemSummary => Boolean(entry));
+
+        console.log("[itemsApi] fetchMyReportedItems success", {
+            count: normalized.length,
+        });
+
+        return normalized;
+    } catch (error) {
+        console.log("[itemsApi] fetchMyReportedItems error", {
             error: error instanceof Error ? error.message : error,
         });
         throw error;
