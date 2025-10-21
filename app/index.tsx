@@ -13,11 +13,7 @@ export default function Index() {
 
   const primaryOptions = useMemo(
     () => [
-      {
-        label: "Continue with Google",
-        icon: "logo-google",
-        onPress: () => Alert.alert("Google sign-in", "Hook up Google OAuth."),
-      },
+
       {
         label: "Sign up with email",
         icon: "mail-outline",
