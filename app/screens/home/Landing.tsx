@@ -10,7 +10,6 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -46,13 +45,14 @@ export default function Landing() {
 
   const greetingName = session?.name?.split(" ").filter(Boolean)[0] ?? "there";
   const profilePhoto = session?.profilePhoto ?? null;
+  const profileInitial = session?.name?.slice(0, 1)?.toUpperCase();
   const email = session?.email ?? "";
 
   const handleCloseMenu = () => setMenuVisible(false);
 
   const handleViewProfile = () => {
     setMenuVisible(false);
-    Alert.alert("Profile", "Profile view is coming soon.");
+    router.push("/screens/home/Profile");
   };
 
   const themeOptions = useMemo(
@@ -210,11 +210,11 @@ export default function Landing() {
                 contentFit="cover"
               />
             ) : (
-              <Ionicons
-                name="person-circle-outline"
-                size={32}
-                color={palette.text}
-              />
+              <View style={styles.profileInitialBadge}>
+                <Text style={styles.profileInitialText}>
+                  {profileInitial ?? "U"}
+                </Text>
+              </View>
             )}
           </TouchableOpacity>
         </View>
@@ -413,11 +413,9 @@ export default function Landing() {
                 />
               ) : (
                 <View style={styles.menuAvatarFallback}>
-                  <Ionicons
-                    name="person-outline"
-                    size={20}
-                    color={palette.text}
-                  />
+                  <Text style={styles.menuAvatarInitial}>
+                    {profileInitial ?? "U"}
+                  </Text>
                 </View>
               )}
               <View style={styles.menuHeaderText}>
@@ -531,6 +529,20 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       alignItems: "center",
       justifyContent: "center",
     },
+    profileInitialBadge: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor:
+        scheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(15,23,42,0.08)",
+    },
+    profileInitialText: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: palette.primary,
+    },
     profilePhoto: {
       width: "100%",
       height: "100%",
@@ -589,6 +601,11 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
         scheme === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
       alignItems: "center",
       justifyContent: "center",
+    },
+    menuAvatarInitial: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: palette.primary,
     },
     menuDivider: {
       height: StyleSheet.hairlineWidth,

@@ -29,14 +29,15 @@ const NAV_ITEMS = [
   {
     label: "Profile",
     icon: "person-outline" as const,
-    alertMessage: "Profile is coming soon.",
+    route: "/screens/home/Profile" as const,
   },
 ] satisfies NavItem[];
 
 type NavRoute =
   | "/screens/home/Landing"
   | "/screens/home/ReportLostItem"
-  | "/screens/home/SearchItems";
+  | "/screens/home/SearchItems"
+  | "/screens/home/Profile";
 
 type NavItem = {
   label: string;
