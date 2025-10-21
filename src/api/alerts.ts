@@ -50,6 +50,20 @@ type MyAlertsApiResponse = {
     error?: string;
 };
 
+type UserAlertsApiResponse = {
+    success: boolean;
+    message?: string;
+    data?: unknown;
+    error?: string;
+};
+
+type UpdateAlertStatusApiResponse = {
+    success: boolean;
+    message?: string;
+    data?: unknown;
+    error?: string;
+};
+
 function coerceNumber(value: unknown): number | null {
     if (typeof value === "number" && Number.isFinite(value)) {
         return value;
@@ -238,6 +252,116 @@ export async function fetchMyAlerts(
         return normalized;
     } catch (error) {
         console.log("[alertsApi] fetchMyAlerts error", {
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
+}
+
+export async function fetchAlertsByUser(
+    userId: number,
+    config?: HttpRequestConfig,
+): Promise<LostItemAlert[]> {
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+    };
+
+    console.log("[alertsApi] fetchAlertsByUser start", { userId });
+
+    try {
+        const response = await httpClient.get<UserAlertsApiResponse>(
+            `/api/alerts/user/${userId}`,
+            requestConfig,
+        );
+        const payload = response.data;
+
+        if (!payload.success || !Array.isArray(payload.data)) {
+            console.log("[alertsApi] fetchAlertsByUser failed", {
+                status: response.status,
+                message: payload.message,
+                error: payload.error,
+            });
+            throw new ApiError(payload.message || payload.error || "Unable to load alerts.", {
+                status: response.status,
+                data: payload,
+            });
+        }
+
+        const normalized = payload.data
+            .map((entry) => normalizeLostItemAlert(entry))
+            .filter((entry): entry is LostItemAlert => Boolean(entry));
+
+        console.log("[alertsApi] fetchAlertsByUser success", {
+            userId,
+            count: normalized.length,
+        });
+
+        return normalized;
+    } catch (error) {
+        console.log("[alertsApi] fetchAlertsByUser error", {
+            userId,
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
+}
+
+export async function updateAlertStatus(
+    alertId: number,
+    isActive: boolean,
+    config?: HttpRequestConfig,
+): Promise<LostItemAlert> {
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+    };
+
+    console.log("[alertsApi] updateAlertStatus start", {
+        alertId,
+        isActive,
+    });
+
+    try {
+        const response = await httpClient.patch<UpdateAlertStatusApiResponse>(
+            `/api/alerts/${alertId}/status`,
+            { isActive },
+            requestConfig,
+        );
+        const payload = response.data;
+
+        if (!payload.success || !payload.data || typeof payload.data !== "object") {
+            console.log("[alertsApi] updateAlertStatus failed", {
+                alertId,
+                status: response.status,
+                message: payload.message,
+                error: payload.error,
+            });
+            throw new ApiError(
+                payload.message || payload.error || "Unable to update alert status.",
+                {
+                    status: response.status,
+                    data: payload,
+                },
+            );
+        }
+
+        const normalized = normalizeLostItemAlert(payload.data);
+
+        if (!normalized) {
+            throw new ApiError("Received malformed alert payload.", {
+                status: response.status,
+                data: payload.data,
+            });
+        }
+
+        console.log("[alertsApi] updateAlertStatus success", {
+            alertId,
+            isActive: normalized.isActive,
+        });
+
+        return normalized;
+    } catch (error) {
+        console.log("[alertsApi] updateAlertStatus error", {
+            alertId,
             error: error instanceof Error ? error.message : error,
         });
         throw error;

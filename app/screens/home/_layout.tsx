@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Slot, usePathname, useRouter } from "expo-router";
 import React, { useMemo } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Palette, useAppTheme } from "../../../src/theme";
 
@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   {
     label: "Alerts",
     icon: "notifications-outline" as const,
-    alertMessage: "Alerts are coming soon.",
+    route: "/screens/home/Alerts" as const,
   },
   {
     label: "Profile",
@@ -37,13 +37,13 @@ type NavRoute =
   | "/screens/home/Landing"
   | "/screens/home/ReportLostItem"
   | "/screens/home/SearchItems"
-  | "/screens/home/Profile";
+  | "/screens/home/Profile"
+  | "/screens/home/Alerts";
 
 type NavItem = {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   route?: NavRoute;
-  alertMessage?: string;
 };
 
 export default function HomeLayout() {
@@ -57,15 +57,12 @@ export default function HomeLayout() {
   );
 
   const handleNavPress = (item: NavItem) => {
-    if (item.route) {
-      if (pathname !== item.route) {
-        router.replace(item.route);
-      }
+    if (!item.route) {
       return;
     }
 
-    if (item.alertMessage) {
-      Alert.alert("Coming soon", item.alertMessage);
+    if (pathname !== item.route) {
+      router.replace(item.route);
     }
   };
 
