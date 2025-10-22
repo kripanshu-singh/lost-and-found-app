@@ -130,6 +130,7 @@ export default function ReportLostItem() {
   const [isPickerVisible, setPickerVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [imageInputError, setImageInputError] = useState<string | null>(null);
 
   const placeholderColor = useMemo(
     () => (scheme === "dark" ? "rgba(255,255,255,0.55)" : "rgba(0,0,0,0.45)"),
@@ -329,6 +330,7 @@ export default function ReportLostItem() {
       });
       return Array.from(unique);
     });
+    setImageInputError(null);
   };
 
   const pickFromLibrary = async () => {
@@ -432,6 +434,7 @@ export default function ReportLostItem() {
 
     setErrorMessage(null);
     setLocationInputError(null);
+    setImageInputError(null);
 
     if (!trimmedName) {
       setErrorMessage("Item name is required.");
@@ -445,6 +448,11 @@ export default function ReportLostItem() {
 
     if (!trimmedLocation) {
       setLocationInputError("Select where you found the item.");
+      return;
+    }
+
+    if (images.length === 0) {
+      setImageInputError("Add at least one photo of the item.");
       return;
     }
 
@@ -537,6 +545,7 @@ export default function ReportLostItem() {
             images={images}
             onAddImage={handleAddImage}
             onRemoveImage={handleRemoveImage}
+            imageError={imageInputError}
           />
 
           <ErrorBanner styles={styles} message={errorMessage} />
@@ -839,6 +848,12 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       flexDirection: "row",
       flexWrap: "wrap",
       gap: 12,
+    },
+    inputErrorMessage: {
+      marginTop: 8,
+      fontSize: 13,
+      fontWeight: "600",
+      color: palette.danger,
     },
     imageWrapper: {
       width: 96,
@@ -1436,6 +1451,7 @@ type PhotosSectionProps = {
   images: string[];
   onAddImage: () => void;
   onRemoveImage: (uri: string) => void;
+  imageError: string | null;
 };
 
 function PhotosSection({
@@ -1444,6 +1460,7 @@ function PhotosSection({
   images,
   onAddImage,
   onRemoveImage,
+  imageError,
 }: PhotosSectionProps) {
   return (
     <View style={styles.formSection}>
@@ -1479,6 +1496,9 @@ function PhotosSection({
           </TouchableOpacity>
         ) : null}
       </View>
+      {imageError ? (
+        <Text style={styles.inputErrorMessage}>{imageError}</Text>
+      ) : null}
     </View>
   );
 }

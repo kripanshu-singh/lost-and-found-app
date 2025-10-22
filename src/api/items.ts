@@ -37,7 +37,7 @@ export interface LostItemSummary {
 export interface ItemPersonReference {
     id: number;
     name: string;
-    profilePhotoUrl?: string | null;
+    profilePhoto?: string | null;
 }
 
 export interface PagedLostItems {
@@ -518,6 +518,13 @@ type ItemDetailApiResponse = {
     error?: string;
 };
 
+type ClaimLostItemApiResponse = {
+    success: boolean;
+    message?: string;
+    data?: LostItemDetail;
+    error?: string;
+};
+
 export async function fetchLostItemById(
     id: number,
     config?: HttpRequestConfig,
@@ -552,11 +559,121 @@ export async function fetchLostItemById(
             id,
             status: payload.data.status,
             category: payload.data.category,
+            item: payload.data.postedBy?.profilePhoto,
         });
 
         return payload.data;
     } catch (error) {
         console.log("[itemsApi] fetchLostItemById error", {
+            id,
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
+}
+
+export type ItemClaimMutationResult = {
+    message: string;
+    item: LostItemDetail;
+};
+
+export async function claimLostItem(
+    id: number,
+    config?: HttpRequestConfig,
+): Promise<ItemClaimMutationResult> {
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+    };
+
+    console.log("[itemsApi] claimLostItem start", { id });
+
+    try {
+        const response = await httpClient.post<ClaimLostItemApiResponse>(
+            `/api/items/${id}/claim`,
+            undefined,
+            requestConfig,
+        );
+        const payload = response.data;
+
+        if (!payload.success || !payload.data) {
+            console.log("[itemsApi] claimLostItem failed", {
+                id,
+                status: response.status,
+                message: payload.message,
+                error: payload.error,
+            });
+            throw new ApiError(
+                payload.message || payload.error || "Unable to claim item.",
+                {
+                    status: response.status,
+                    data: payload,
+                },
+            );
+        }
+
+        console.log("[itemsApi] claimLostItem success", {
+            id,
+            message: payload.message,
+        });
+
+        return {
+            message: payload.message || "Item claimed successfully.",
+            item: payload.data,
+        };
+    } catch (error) {
+        console.log("[itemsApi] claimLostItem error", {
+            id,
+            error: error instanceof Error ? error.message : error,
+        });
+        throw error;
+    }
+}
+
+export async function unclaimLostItem(
+    id: number,
+    config?: HttpRequestConfig,
+): Promise<ItemClaimMutationResult> {
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+    };
+
+    console.log("[itemsApi] unclaimLostItem start", { id });
+
+    try {
+        const response = await httpClient.post<ClaimLostItemApiResponse>(
+            `/api/items/${id}/unclaim`,
+            undefined,
+            requestConfig,
+        );
+        const payload = response.data;
+
+        if (!payload.success || !payload.data) {
+            console.log("[itemsApi] unclaimLostItem failed", {
+                id,
+                status: response.status,
+                message: payload.message,
+                error: payload.error,
+            });
+            throw new ApiError(
+                payload.message || payload.error || "Unable to unclaim item.",
+                {
+                    status: response.status,
+                    data: payload,
+                },
+            );
+        }
+
+        console.log("[itemsApi] unclaimLostItem success", {
+            id,
+            message: payload.message,
+        });
+
+        return {
+            message: payload.message || "Item is now available.",
+            item: payload.data,
+        };
+    } catch (error) {
+        console.log("[itemsApi] unclaimLostItem error", {
             id,
             error: error instanceof Error ? error.message : error,
         });

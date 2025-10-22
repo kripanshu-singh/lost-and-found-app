@@ -81,12 +81,7 @@ const Register = () => {
         return;
       }
 
-      Alert.alert("Registration successful", response.message, [
-        {
-          text: "Continue",
-          onPress: () => router.replace("/screens/home/Landing"),
-        },
-      ]);
+      router.replace("/screens/home/Landing")
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -170,7 +165,6 @@ const Register = () => {
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              // className="bg-red-500"
             >
               <View style={styles.headerRow}>
                 <Text style={styles.title}>Create account</Text>

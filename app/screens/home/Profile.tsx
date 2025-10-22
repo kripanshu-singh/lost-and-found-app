@@ -138,6 +138,11 @@ export default function ProfileScreen() {
   );
 
   const profileInitial = session?.name?.slice(0, 1)?.toUpperCase();
+  const displayedReportedItems = useMemo(
+    () => reportedItems.slice(0, 3),
+    [reportedItems],
+  );
+  const displayedAlerts = useMemo(() => alerts.slice(0, 2), [alerts]);
 
   const loadProfileData = useCallback(
     async (guard?: () => boolean) => {
@@ -397,7 +402,7 @@ export default function ProfileScreen() {
               </Text>
             </View>
           ) : null}
-          {reportedItems.map((item) => (
+          {displayedReportedItems.map((item) => (
             <LostItemCard
               key={item.id}
               item={item}
@@ -436,7 +441,7 @@ export default function ProfileScreen() {
               </Text>
             </View>
           ) : null}
-          {alerts.map((alert) => (
+          {displayedAlerts.map((alert) => (
             <AlertCard
               key={String(alert.id)}
               alert={alert}

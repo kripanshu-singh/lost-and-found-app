@@ -28,16 +28,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ApiError } from "../../../src/api/httpClient";
 import {
+  claimLostItem,
   deleteLostItem,
   fetchLostItemById,
+  unclaimLostItem,
   type ItemCategory,
   type LostItemDetail,
 } from "../../../src/api/items";
 import { useAuth } from "../../../src/auth/AuthProvider";
 import { Palette, useAppTheme } from "../../../src/theme";
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1521208914987-3eab03c06a61?auto=format&fit=crop&w=1200&q=80";
+const FALLBACK_IMAGE = "https://placehold.co/600x400?text=Item\Image!";
 
 export default function ItemDetail() {
   const router = useRouter();
@@ -68,6 +69,8 @@ export default function ItemDetail() {
   const [isPreviewVisible, setPreviewVisible] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [isUnclaiming, setIsUnclaiming] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const heroScrollRef = useRef<ScrollView | null>(null);
@@ -280,6 +283,58 @@ export default function ItemDetail() {
     return reporterId === session.userId;
   }, [item, session?.userId]);
 
+  const hasClaimed = useMemo(() => {
+    if (!item || !session?.userId) {
+      return false;
+    }
+    const claimedId = item.claimedBy?.id ?? item.claimedByUserId ?? null;
+    return claimedId === session.userId;
+  }, [item, session?.userId]);
+
+  const isAvailableForClaim = useMemo(() => {
+    return (item?.status ?? "").toLowerCase() === "available";
+  }, [item?.status]);
+
+  const canAttemptClaim = useMemo(() => {
+    if (!session || !item) {
+      return false;
+    }
+    return !isOwner && isAvailableForClaim && !hasClaimed;
+  }, [session, item, isOwner, isAvailableForClaim, hasClaimed]);
+
+  const canAttemptUnclaim = useMemo(() => {
+    if (!session || !item) {
+      return false;
+    }
+    return !isOwner && hasClaimed;
+  }, [session, item, isOwner, hasClaimed]);
+
+  const claimButtonLabel = useMemo(() => {
+    if (isClaiming) {
+      return "Claiming…";
+    }
+    if (hasClaimed) {
+      return "You claimed this item";
+    }
+    if (!isAvailableForClaim) {
+      return "Item not available";
+    }
+    return "Claim this item";
+  }, [isClaiming, hasClaimed, isAvailableForClaim]);
+
+  const claimButtonIcon = useMemo<keyof typeof Ionicons.glyphMap | null>(() => {
+    if (isClaiming) {
+      return null;
+    }
+    if (hasClaimed) {
+      return "checkmark-circle";
+    }
+    if (!isAvailableForClaim) {
+      return "lock-closed-outline";
+    }
+    return "hand-right-outline";
+  }, [isClaiming, hasClaimed, isAvailableForClaim]);
+
   const handleEditItem = useCallback(() => {
     if (!item?.id) {
       return;
@@ -289,6 +344,47 @@ export default function ItemDetail() {
       params: { id: String(item.id) },
     });
   }, [item?.id, router]);
+
+  const handleClaimItem = useCallback(async () => {
+    if (!item?.id || !session) {
+      return;
+    }
+    setIsClaiming(true);
+    try {
+      const result = await claimLostItem(item.id);
+      setItem(result.item);
+      Alert.alert("Item claimed", result.message);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : "Unable to claim this item right now.";
+      Alert.alert("Claim failed", message);
+    } finally {
+      setIsClaiming(false);
+    }
+  }, [item?.id, session]);
+
+  const handleUnclaimItem = useCallback(async () => {
+    if (!item?.id || !session) {
+      return;
+    }
+
+    setIsUnclaiming(true);
+    try {
+      const result = await unclaimLostItem(item.id);
+      setItem(result.item);
+      Alert.alert("Item unclaimed", result.message);
+    } catch (error) {
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : "Unable to unclaim this item right now.";
+      Alert.alert("Unclaim failed", message);
+    } finally {
+      setIsUnclaiming(false);
+    }
+  }, [item?.id, session]);
 
   const performDeleteItem = useCallback(async () => {
     const itemId = item?.id;
@@ -537,6 +633,74 @@ export default function ItemDetail() {
 
         <View style={styles.card}>
           <Text style={styles.sectionHeading}>Quick actions</Text>
+          {!isOwner && session ? (
+            <TouchableOpacity
+              style={[
+                styles.claimButton,
+                (!canAttemptClaim || isClaiming || hasClaimed) &&
+                  styles.claimButtonDisabled,
+              ]}
+              onPress={() => {
+                if (canAttemptClaim && !isClaiming) {
+                  void handleClaimItem();
+                }
+              }}
+              activeOpacity={0.85}
+              disabled={!canAttemptClaim || isClaiming}
+            >
+              {isClaiming ? (
+                <ActivityIndicator size="small" color={palette.surface} />
+              ) : claimButtonIcon ? (
+                <Ionicons
+                  name={claimButtonIcon}
+                  size={18}
+                  color={
+                    !canAttemptClaim || hasClaimed || isClaiming
+                      ? palette.textSecondary
+                      : palette.surface
+                  }
+                />
+              ) : null}
+              <Text
+                style={[
+                  styles.claimButtonText,
+                  (!canAttemptClaim || hasClaimed || isClaiming) &&
+                    styles.claimButtonTextDisabled,
+                ]}
+              >
+                {claimButtonLabel}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {!isOwner && session && hasClaimed ? (
+            <TouchableOpacity
+              style={[
+                styles.unclaimButton,
+                (!canAttemptUnclaim || isUnclaiming) &&
+                  styles.unclaimButtonDisabled,
+              ]}
+              onPress={() => {
+                if (canAttemptUnclaim && !isUnclaiming) {
+                  void handleUnclaimItem();
+                }
+              }}
+              activeOpacity={0.85}
+              disabled={!canAttemptUnclaim || isUnclaiming}
+            >
+              {isUnclaiming ? (
+                <ActivityIndicator size="small" color={palette.text} />
+              ) : (
+                <Ionicons
+                  name="arrow-undo-outline"
+                  size={18}
+                  color={palette.text}
+                />
+              )}
+              <Text style={styles.unclaimButtonText}>
+                {isUnclaiming ? "Releasing…" : "Unclaim this item"}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           <View style={styles.actionsRow}>
             <TouchableOpacity
               style={[
@@ -726,9 +890,9 @@ function PersonRow({ title, person, fallbackLabel, icon }: PersonRowProps) {
   return (
     <View style={styles.container}>
       <View style={styles.avatarWrapper}>
-        {person?.profilePhotoUrl ? (
+        {person?.profilePhoto ? (
           <Image
-            source={{ uri: person.profilePhotoUrl }}
+            source={{ uri: person.profilePhoto }}
             style={styles.avatar}
             contentFit="cover"
           />
@@ -1103,6 +1267,54 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       backgroundColor: palette.surface,
     },
     secondaryActionText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: palette.text,
+    },
+    claimButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderRadius: 16,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      backgroundColor: palette.primary,
+      marginBottom: 12,
+    },
+    claimButtonDisabled: {
+      backgroundColor:
+        scheme === "dark" ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.16)",
+      borderWidth: 1,
+      borderColor:
+        scheme === "dark" ? "rgba(148,163,184,0.35)" : "rgba(148,163,184,0.24)",
+    },
+    claimButtonText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: palette.surface,
+    },
+    claimButtonTextDisabled: {
+      color: palette.text,
+    },
+    unclaimButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderRadius: 16,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderWidth: 1,
+      borderColor: palette.border,
+      backgroundColor:
+        scheme === "dark" ? "rgba(148,163,184,0.18)" : "rgba(148,163,184,0.12)",
+      marginBottom: 12,
+    },
+    unclaimButtonDisabled: {
+      opacity: 0.75,
+    },
+    unclaimButtonText: {
       fontSize: 15,
       fontWeight: "600",
       color: palette.text,
