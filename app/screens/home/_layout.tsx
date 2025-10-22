@@ -10,26 +10,31 @@ const NAV_ITEMS = [
     label: "Home",
     icon: "home" as const,
     route: "/screens/home/Landing" as const,
+    matchers: ["/screens/home/Landing"],
   },
   {
     label: "Search",
     icon: "search-outline" as const,
     route: "/screens/home/SearchItems" as const,
+    matchers: ["/screens/home/SearchItems"],
   },
   {
     label: "Add",
     icon: "add-circle" as const,
-    route: "/screens/home/ReportLostItem",
+    route: "/screens/home/ReportLostItem" as const,
+    matchers: ["/screens/home/ReportLostItem"],
   },
   {
     label: "Alerts",
     icon: "notifications-outline" as const,
     route: "/screens/home/Alerts" as const,
+    matchers: ["/screens/home/Alerts"],
   },
   {
     label: "Profile",
     icon: "person-outline" as const,
     route: "/screens/home/Profile" as const,
+    matchers: ["/screens/home/Profile", "/screens/home/EditProfile"],
   },
 ] satisfies NavItem[];
 
@@ -44,6 +49,7 @@ type NavItem = {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   route?: NavRoute;
+  matchers?: string[];
 };
 
 export default function HomeLayout() {
@@ -81,7 +87,14 @@ export default function HomeLayout() {
         ]}
       >
         {NAV_ITEMS.map((item) => {
-          const isActive = item.route ? pathname.startsWith(item.route) : false;
+          const candidates = item.matchers?.length
+            ? item.matchers
+            : item.route
+              ? [item.route]
+              : [];
+          const isActive = candidates.some((candidate) =>
+            pathname.startsWith(candidate),
+          );
           return (
             <TouchableOpacity
               key={item.label}

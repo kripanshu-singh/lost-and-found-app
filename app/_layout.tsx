@@ -55,6 +55,7 @@ export default function RootLayout() {
             <Stack.Screen name="screens/home/ReportLostItem" />
             <Stack.Screen name="screens/home/CreateAlert" />
             <Stack.Screen name="screens/home/Alerts" />
+            <Stack.Screen name="screens/home/EditProfile" />
             <Stack.Screen name="screens/auth/Register" />
           </Stack>
         </AuthProvider>

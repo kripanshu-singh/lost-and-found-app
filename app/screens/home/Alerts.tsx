@@ -220,7 +220,7 @@ export default function AlertsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
-          <View>
+          <View style={styles.headerText}>
             <Text style={styles.pageTitle}>Alerts</Text>
             <Text style={styles.pageSubtitle}>
               Manage the notifications that help you stay updated
@@ -380,6 +380,10 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       alignItems: "center",
       gap: 12,
     },
+    headerText: {
+      flex: 1,
+      paddingRight: 12,
+    },
     pageTitle: {
       fontSize: 26,
       fontWeight: "700",
@@ -403,6 +407,7 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       shadowOpacity: scheme === "dark" ? 0.35 : 0.18,
       shadowRadius: 16,
       elevation: 6,
+      flexShrink: 0,
     },
     primaryButtonText: {
       fontSize: 14,

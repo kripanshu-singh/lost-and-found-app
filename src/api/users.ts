@@ -54,6 +54,24 @@ export interface UserKpisResponse {
     error?: string;
 }
 
+export interface UpdateUserProfilePayload {
+    name?: string | null;
+    profilePhotoUri?: string | null;
+}
+
+export interface UpdateUserProfileResult {
+    success: boolean;
+    message: string;
+    profile: NormalizedUserProfile;
+}
+
+type UpdateUserProfileApiResponse = {
+    success: boolean;
+    message?: string;
+    data?: unknown;
+    error?: string;
+};
+
 function coerceNumber(value: unknown): number {
     if (typeof value === "number" && Number.isFinite(value)) {
         return value;
@@ -283,6 +301,143 @@ export async function fetchUserKpis(
         return normalized;
     } catch (error) {
         console.log("[usersApi] fetchUserKpis: request failed", {
+            error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+    }
+}
+
+function resolveProfileFileName(uri: string): string {
+    const segments = uri.split(/[/\\]/);
+    const last = segments.pop() ?? `profile-${Date.now()}`;
+    if (last.includes(".")) {
+        return last;
+    }
+    return `${last}.jpg`;
+}
+
+function resolveProfileMimeType(uri: string): string {
+    const extension = uri.split(".").pop()?.toLowerCase();
+    switch (extension) {
+        case "png":
+            return "image/png";
+        case "webp":
+            return "image/webp";
+        case "heic":
+            return "image/heic";
+        case "jpeg":
+        case "jpg":
+            return "image/jpeg";
+        default:
+            return "image/jpeg";
+    }
+}
+
+function coerceStringValue(value: unknown): string | null {
+    if (typeof value !== "string") {
+        return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+
+export async function updateCurrentUserProfile(
+    payload: UpdateUserProfilePayload,
+    config?: HttpRequestConfig,
+    fallbackProfile?: NormalizedUserProfile,
+): Promise<UpdateUserProfileResult> {
+    const formData = new FormData();
+    const requestConfig: HttpRequestConfig = {
+        ...(config ?? {}),
+        headers: {
+            ...(config?.headers ?? {}),
+            "Content-Type": "multipart/form-data",
+        },
+    };
+
+    if (payload.name !== undefined) {
+        const trimmed = payload.name?.toString().trim();
+        if (trimmed && trimmed.length > 0) {
+            formData.append("name", trimmed);
+        }
+    }
+
+    if (payload.profilePhotoUri) {
+        const fileName = resolveProfileFileName(payload.profilePhotoUri);
+        const mimeType = resolveProfileMimeType(payload.profilePhotoUri);
+        const file = {
+            uri: payload.profilePhotoUri,
+            name: fileName,
+            type: mimeType,
+        } as unknown as Blob;
+        formData.append("profilePhoto", file);
+    }
+
+    try {
+        const response = await httpClient.patch<UpdateUserProfileApiResponse>(
+            "/api/users/me",
+            formData,
+            requestConfig,
+        );
+
+        const payloadResponse = response.data;
+
+        if (!payloadResponse.success || !payloadResponse.data) {
+            console.log("[usersApi] updateCurrentUserProfile: failed", {
+                status: response.status,
+                message: payloadResponse.message,
+                error: payloadResponse.error,
+            });
+            throw new ApiError(
+                payloadResponse.message || payloadResponse.error || "Unable to update profile.",
+                {
+                    status: response.status,
+                    data: payloadResponse,
+                },
+            );
+        }
+
+        let profile = normalizeUserProfile(payloadResponse.data);
+
+        if (!profile && fallbackProfile && payloadResponse.data && typeof payloadResponse.data === "object") {
+            const record = payloadResponse.data as Record<string, unknown>;
+            const resolvedName =
+                coerceStringValue(record.name) ?? fallbackProfile.name;
+            const resolvedPhoto =
+                coerceStringValue(record.profilePhoto) ??
+                coerceStringValue(record.profilePhotoUrl) ??
+                fallbackProfile.profilePhoto;
+
+            profile = {
+                userId: fallbackProfile.userId,
+                name: resolvedName,
+                email: fallbackProfile.email,
+                profilePhoto: resolvedPhoto,
+            };
+        }
+
+        if (!profile) {
+            throw new ApiError("Received malformed profile payload.", {
+                status: response.status,
+                data: payloadResponse.data,
+            });
+        }
+
+        const message =
+            payloadResponse.message ||
+            "Your profile has been updated successfully.";
+
+        console.log("[usersApi] updateCurrentUserProfile: success", {
+            userId: profile.userId,
+        });
+
+        return {
+            success: true,
+            message,
+            profile,
+        };
+    } catch (error) {
+        console.log("[usersApi] updateCurrentUserProfile: request failed", {
             error: error instanceof Error ? error.message : String(error),
         });
         throw error;
