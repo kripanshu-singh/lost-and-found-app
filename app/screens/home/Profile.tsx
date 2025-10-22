@@ -412,9 +412,7 @@ export default function ProfileScreen() {
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Active Alerts</Text>
           <TouchableOpacity
-            onPress={() =>
-              Alert.alert("Coming soon", "Alert management is in progress.")
-            }
+            onPress={() => router.push("/screens/home/Alerts")}
             hitSlop={8}
           >
             <Text style={styles.sectionAction}>Manage</Text>

@@ -201,18 +201,20 @@ export default function EditProfileScreen() {
                 activeOpacity={0.9}
                 onPress={handlePickImage}
               >
-                {photoPreview ? (
-                  <Image
-                    source={{ uri: photoPreview }}
-                    style={styles.avatar}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                ) : (
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarInitial}>{profileInitial}</Text>
-                  </View>
-                )}
+                <View style={styles.avatarFrame}>
+                  {photoPreview ? (
+                    <Image
+                      source={{ uri: photoPreview }}
+                      style={styles.avatar}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  ) : (
+                    <View style={styles.avatarFallback}>
+                      <Text style={styles.avatarInitial}>{profileInitial}</Text>
+                    </View>
+                  )}
+                </View>
                 <View style={styles.cameraBadge}>
                   <Ionicons name="camera" size={16} color="#fff" />
                 </View>
@@ -358,12 +360,21 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       width: 120,
       height: 120,
       borderRadius: 60,
-      overflow: "hidden",
       alignItems: "center",
       justifyContent: "center",
       position: "relative",
+    },
+    avatarFrame: {
+      width: "100%",
+      height: "100%",
+      borderRadius: 60,
+      overflow: "hidden",
+      alignItems: "center",
+      justifyContent: "center",
       backgroundColor:
-        scheme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(15,23,42,0.05)",
+        scheme === "dark" ? palette.surface : "rgba(255,255,255,0.96)",
+      borderWidth: 1,
+      borderColor: palette.border,
     },
     avatar: {
       width: "100%",
@@ -374,6 +385,8 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       height: "100%",
       alignItems: "center",
       justifyContent: "center",
+      backgroundColor:
+        scheme === "dark" ? "rgba(20,27,38,0.9)" : "rgba(15,23,42,0.04)",
     },
     avatarInitial: {
       fontSize: 36,
@@ -384,17 +397,19 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       position: "absolute",
       bottom: 8,
       right: 8,
-      width: 32,
-      height: 32,
-      borderRadius: 16,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       backgroundColor: palette.primary,
       alignItems: "center",
       justifyContent: "center",
-      shadowColor: palette.primary,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.4,
-      shadowRadius: 4,
-      elevation: 4,
+      borderWidth: 2,
+      borderColor: scheme === "dark" ? palette.background : "#fff",
+      shadowColor: palette.primaryStrong,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 1,
     },
     avatarHint: {
       fontSize: 13,

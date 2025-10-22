@@ -223,7 +223,7 @@ export default function AlertsScreen() {
           <View style={styles.headerText}>
             <Text style={styles.pageTitle}>Alerts</Text>
             <Text style={styles.pageSubtitle}>
-              Manage the notifications that help you stay updated
+              Manage the notifications
             </Text>
           </View>
           <TouchableOpacity
