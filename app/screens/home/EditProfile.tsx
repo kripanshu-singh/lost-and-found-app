@@ -136,12 +136,7 @@ export default function EditProfileScreen() {
       await setSession(updated);
       setSelectedPhotoUri(null);
       setPhotoPreview(response.profile.profilePhoto ?? null);
-      Alert.alert("Profile updated", response.message, [
-        {
-          text: "Done",
-          onPress: () => router.back(),
-        },
-      ]);
+      router.back();
     } catch (error) {
       const message =
         error instanceof ApiError
