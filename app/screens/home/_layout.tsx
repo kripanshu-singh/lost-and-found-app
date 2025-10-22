@@ -34,7 +34,11 @@ const NAV_ITEMS = [
     label: "Profile",
     icon: "person-outline" as const,
     route: "/screens/home/Profile" as const,
-    matchers: ["/screens/home/Profile", "/screens/home/EditProfile"],
+    matchers: [
+      "/screens/home/Profile",
+      "/screens/home/EditProfile",
+      "/screens/home/MyReportedItems",
+    ],
   },
 ] satisfies NavItem[];
 
@@ -44,7 +48,8 @@ type NavRoute =
   | "/screens/home/SearchItems"
   | "/screens/home/Profile"
   | "/screens/home/Alerts"
-  | "/screens/home/CreateAlert";
+  | "/screens/home/CreateAlert"
+  | "/screens/home/MyReportedItems";
 
 type NavItem = {
   label: string;
