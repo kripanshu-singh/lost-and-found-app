@@ -288,17 +288,7 @@ export default function CreateAlert() {
         locationDescription: locationDescription.trim() || undefined,
         dateLost: dateLost ? formatDateForApi(dateLost) : undefined,
       };
-
-      const response = await createLostItemAlert(payload);
-      const message = response.message || "Alert created successfully.";
-      Alert.alert("Alert active", message, [
-        {
-          text: "Great",
-          onPress: () => {
-            router.replace("/screens/home/Landing");
-          },
-        },
-      ]);
+      router.replace("/screens/home/Landing");
     } catch (error) {
       const message =
         error instanceof ApiError

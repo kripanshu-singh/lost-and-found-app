@@ -353,7 +353,6 @@ export default function ItemDetail() {
     try {
       const result = await claimLostItem(item.id);
       setItem(result.item);
-      Alert.alert("Item claimed", result.message);
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -374,7 +373,6 @@ export default function ItemDetail() {
     try {
       const result = await unclaimLostItem(item.id);
       setItem(result.item);
-      Alert.alert("Item unclaimed", result.message);
     } catch (error) {
       const message =
         error instanceof ApiError
