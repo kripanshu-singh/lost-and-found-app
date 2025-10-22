@@ -245,6 +245,10 @@ export default function ProfileScreen() {
     router.push("/screens/home/EditProfile");
   };
 
+  const handleViewAllReports = useCallback(() => {
+    router.push("/screens/home/MyReportedItems");
+  }, [router]);
+
   const handleOpenItem = useCallback(
     (id: number) => {
       router.push({
@@ -370,12 +374,7 @@ export default function ProfileScreen() {
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Your Reports</Text>
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert("Coming soon", "Full history will be available soon.")
-            }
-            hitSlop={8}
-          >
+          <TouchableOpacity onPress={handleViewAllReports} hitSlop={8}>
             <Text style={styles.sectionAction}>View all</Text>
           </TouchableOpacity>
         </View>
