@@ -242,7 +242,7 @@ export default function ProfileScreen() {
   }, [isLoading, loadProfileData]);
 
   const handleEditProfile = () => {
-    Alert.alert("Coming soon", "Profile editing will be available shortly.");
+    router.push("/screens/home/EditProfile");
   };
 
   const handleOpenItem = useCallback(

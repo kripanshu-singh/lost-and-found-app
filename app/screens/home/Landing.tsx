@@ -264,29 +264,6 @@ export default function Landing() {
                 Looking for something you lost?
               </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/screens/home/CreateAlert")}
-              activeOpacity={0.85}
-            >
-              <View
-                style={[
-                  styles.actionIcon,
-                  { backgroundColor: palette.primarySoft },
-                ]}
-              >
-                <Ionicons
-                  name="notifications-outline"
-                  size={28}
-                  color={palette.primary}
-                />
-              </View>
-              <Text style={styles.actionTitle}>Create Lost Alert</Text>
-              <Text style={styles.actionDescription}>
-                Get notified when a matching item is found
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
 
