@@ -170,7 +170,7 @@ const Register = () => {
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              //   className="bg-red-500"
+              // className="bg-red-500"
             >
               <View style={styles.headerRow}>
                 <Text style={styles.title}>Create account</Text>
@@ -182,18 +182,20 @@ const Register = () => {
                   activeOpacity={0.85}
                   onPress={handleSelectPhoto}
                 >
-                  <Image
-                    source={
-                      photoUri
-                        ? { uri: photoUri }
-                        : require("../../../assets/images/icon.png")
-                    }
-                    style={styles.profilePhoto}
-                    contentFit="cover"
-                    transition={200}
-                  />
+                  <View style={styles.photoImageFrame}>
+                    <Image
+                      source={
+                        photoUri
+                          ? { uri: photoUri }
+                          : require("../../../assets/images/profile-placeholder.png")
+                      }
+                      style={styles.profilePhoto}
+                      contentFit="cover"
+                      transition={200}
+                    />
+                  </View>
                   <View style={styles.cameraBadge}>
-                    <Ionicons name="camera" size={16} color="#fff" />
+                    <Ionicons name="camera" size={18} color="#fff" />
                   </View>
                 </TouchableOpacity>
                 <Text style={styles.photoHint}>Add a profile picture</Text>
@@ -380,6 +382,14 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       width: 120,
       height: 120,
       borderRadius: 60,
+      alignItems: "center",
+      justifyContent: "center",
+      position: "relative",
+    },
+    photoImageFrame: {
+      width: "100%",
+      height: "100%",
+      borderRadius: 60,
       overflow: "hidden",
       alignItems: "center",
       justifyContent: "center",
@@ -396,16 +406,18 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       position: "absolute",
       bottom: 8,
       right: 8,
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: palette.primary,
+      borderWidth: 3,
+      borderColor: scheme === "dark" ? palette.background : "#fff",
       shadowColor: palette.primaryStrong,
-      shadowOffset: { width: 0, height: 4 },
+      shadowOffset: { width: 0, height: 6 },
       shadowOpacity: 0.25,
-      shadowRadius: 6,
+      shadowRadius: 8,
     },
     photoHint: {
       fontSize: 14,

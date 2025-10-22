@@ -27,8 +27,8 @@ const NAV_ITEMS = [
   {
     label: "Alerts",
     icon: "notifications-outline" as const,
-    route: "/screens/home/Alerts" as const,
-    matchers: ["/screens/home/Alerts"],
+    route: "/screens/home/CreateAlert" as const,
+    matchers: ["/screens/home/CreateAlert", "/screens/home/Alerts"],
   },
   {
     label: "Profile",
@@ -43,7 +43,8 @@ type NavRoute =
   | "/screens/home/ReportLostItem"
   | "/screens/home/SearchItems"
   | "/screens/home/Profile"
-  | "/screens/home/Alerts";
+  | "/screens/home/Alerts"
+  | "/screens/home/CreateAlert";
 
 type NavItem = {
   label: string;
