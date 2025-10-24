@@ -233,11 +233,6 @@ const Login = () => {
     }
   };
 
-  const handleForgotPassword = () => {
-    console.log("[Login] handleForgotPassword tapped");
-    // TODO: Navigate to password recovery flow.
-  };
-
   const handleCreateAccount = () => {
     if (isSubmitting) {
       console.log("[Login] handleCreateAccount blocked (submitting)");
@@ -262,6 +257,10 @@ const Login = () => {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             style={styles.keyboardContainer}
           >
+            <View style={styles.headerRow}>
+              <Text style={styles.title}>Log in</Text>
+            </View>
+
             <View style={styles.logoContainer}>
               <Image
                 source={require("../../../assets/images/icon.png")}
@@ -351,13 +350,6 @@ const Login = () => {
               {errorMessage && (
                 <Text style={styles.errorText}>{errorMessage}</Text>
               )}
-
-              <TouchableOpacity
-                onPress={handleForgotPassword}
-                disabled={isSubmitting}
-              >
-                <Text style={styles.forgotPassword}>Forgot password?</Text>
-              </TouchableOpacity>
             </View>
 
             <View style={styles.footerContainer}>
@@ -402,12 +394,22 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       alignItems: "center",
     },
     logo: {
-      width: 120,
-      height: 120,
+      width: 150,
+      height: 150,
       borderRadius: 32,
     },
     formContainer: {
       gap: 16,
+    },
+    headerRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: "700",
+      color: palette.text,
     },
     inputWrapper: {
       borderWidth: 1,
@@ -456,12 +458,6 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       color: "#ff4d4f",
       textAlign: "center",
       fontSize: 14,
-    },
-    forgotPassword: {
-      textAlign: "center",
-      color: palette.primary,
-      fontSize: 15,
-      fontWeight: "500",
     },
     footerContainer: {
       alignItems: "center",

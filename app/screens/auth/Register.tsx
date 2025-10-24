@@ -81,7 +81,7 @@ const Register = () => {
         return;
       }
 
-      router.replace("/screens/home/Landing")
+      router.replace("/screens/home/Landing");
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -161,162 +161,166 @@ const Register = () => {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             style={styles.keyboardContainer}
           >
-            <ScrollView
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.headerRow}>
-                <Text style={styles.title}>Create account</Text>
-              </View>
-
-              <View style={styles.photoWrapper}>
-                <TouchableOpacity
-                  style={styles.photoButton}
-                  activeOpacity={0.85}
-                  onPress={handleSelectPhoto}
-                >
-                  <View style={styles.photoImageFrame}>
-                    <Image
-                      source={
-                        photoUri
-                          ? { uri: photoUri }
-                          : require("../../../assets/images/profile-placeholder.png")
-                      }
-                      style={styles.profilePhoto}
-                      contentFit="cover"
-                      transition={200}
-                    />
-                  </View>
-                  <View style={styles.cameraBadge}>
-                    <Ionicons name="camera" size={18} color="#fff" />
-                  </View>
-                </TouchableOpacity>
-                <Text style={styles.photoHint}>Add a profile picture</Text>
-              </View>
-
-              <View style={styles.formContainer}>
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="person-circle-outline"
-                    size={20}
-                    color={iconColor}
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    value={fullName}
-                    onChangeText={setFullName}
-                    placeholder="Full name"
-                    placeholderTextColor={placeholderColor}
-                    style={styles.input}
-                    autoCapitalize="words"
-                  />
-                  {fullName.length > 0 && (
-                    <TouchableOpacity
-                      onPress={() => setFullName("")}
-                      style={styles.inputAction}
-                      hitSlop={8}
-                    >
-                      <Ionicons
-                        name="close-circle"
-                        size={18}
-                        color="rgba(0,0,0,0.35)"
-                      />
-                    </TouchableOpacity>
-                  )}
+            <View style={styles.contentWrapper}>
+              <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <View style={styles.headerRow}>
+                  <Text style={styles.title}>Create account</Text>
                 </View>
 
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color={iconColor}
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="Email"
-                    placeholderTextColor={placeholderColor}
-                    style={styles.input}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
-                  />
-                  {email.length > 0 && (
+                <View style={styles.photoWrapper}>
+                  <TouchableOpacity
+                    style={styles.photoButton}
+                    activeOpacity={0.85}
+                    onPress={handleSelectPhoto}
+                  >
+                    <View style={styles.photoImageFrame}>
+                      <Image
+                        source={
+                          photoUri
+                            ? { uri: photoUri }
+                            : require("../../../assets/images/profile-placeholder.png")
+                        }
+                        style={styles.profilePhoto}
+                        contentFit="cover"
+                        transition={200}
+                      />
+                    </View>
+                    <View style={styles.cameraBadge}>
+                      <Ionicons name="camera" size={18} color="#fff" />
+                    </View>
+                  </TouchableOpacity>
+                  <Text style={styles.photoHint}>Add a profile picture</Text>
+                </View>
+
+                <View style={styles.formContainer}>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons
+                      name="person-circle-outline"
+                      size={20}
+                      color={iconColor}
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      value={fullName}
+                      onChangeText={setFullName}
+                      placeholder="Full name"
+                      placeholderTextColor={placeholderColor}
+                      style={styles.input}
+                      autoCapitalize="words"
+                    />
+                    {fullName.length > 0 && (
+                      <TouchableOpacity
+                        onPress={() => setFullName("")}
+                        style={styles.inputAction}
+                        hitSlop={8}
+                      >
+                        <Ionicons
+                          name="close-circle"
+                          size={18}
+                          color="rgba(0,0,0,0.35)"
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={styles.inputWrapper}>
+                    <Ionicons
+                      name="mail-outline"
+                      size={20}
+                      color={iconColor}
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="Email"
+                      placeholderTextColor={placeholderColor}
+                      style={styles.input}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                    />
+                    {email.length > 0 && (
+                      <TouchableOpacity
+                        onPress={() => setEmail("")}
+                        style={styles.inputAction}
+                        hitSlop={8}
+                      >
+                        <Ionicons
+                          name="close-circle"
+                          size={18}
+                          color={actionIconColor}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <View style={styles.inputWrapper}>
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color={iconColor}
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      value={password}
+                      onChangeText={setPassword}
+                      placeholder="Password"
+                      placeholderTextColor={placeholderColor}
+                      style={styles.input}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                    />
                     <TouchableOpacity
-                      onPress={() => setEmail("")}
+                      onPress={() => setShowPassword((prev) => !prev)}
                       style={styles.inputAction}
                       hitSlop={8}
                     >
                       <Ionicons
-                        name="close-circle"
+                        name={showPassword ? "eye-off-outline" : "eye-outline"}
                         size={18}
                         color={actionIconColor}
                       />
                     </TouchableOpacity>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.primaryButton,
+                    isSubmitting && styles.primaryButtonDisabled,
+                  ]}
+                  activeOpacity={0.9}
+                  onPress={handleCreateAccount}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Get Started</Text>
                   )}
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={20}
-                    color={iconColor}
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="Password"
-                    placeholderTextColor={placeholderColor}
-                    style={styles.input}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowPassword((prev) => !prev)}
-                    style={styles.inputAction}
-                    hitSlop={8}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={18}
-                      color={actionIconColor}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.primaryButton,
-                  isSubmitting && styles.primaryButtonDisabled,
-                ]}
-                activeOpacity={0.9}
-                onPress={handleCreateAccount}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>Get Started</Text>
+                </TouchableOpacity>
+                {errorMessage && (
+                  <Text style={styles.errorText}>{errorMessage}</Text>
                 )}
-              </TouchableOpacity>
-              {errorMessage && (
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              )}
-              <TouchableOpacity
-                style={styles.loginLink}
-                onPress={() => router.replace("/screens/auth/Login")}
-              >
-                <Text style={styles.loginLinkText}>Log in</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.loginLink}
+                  onPress={() => router.replace("/screens/auth/Login")}
+                >
+                  <Text style={styles.loginLinkText}>Log in</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+            <View style={styles.termsFooter}>
               <Text style={styles.termsText}>
                 By continuing I agree with the
                 <Text style={styles.termsLink}> Privacy Policy</Text>,
                 <Text style={styles.termsLink}> Terms & Conditions</Text>
               </Text>
-            </ScrollView>
+            </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
       </View>
@@ -337,6 +341,9 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       flex: 1,
     },
     keyboardContainer: {
+      flex: 1,
+    },
+    contentWrapper: {
       flex: 1,
     },
     scrollContent: {
@@ -467,6 +474,10 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       textAlign: "center",
       color: "#ff4d4f",
       fontSize: 14,
+    },
+    termsFooter: {
+      paddingHorizontal: 24,
+      paddingBottom: 16,
     },
     termsText: {
       textAlign: "center",
