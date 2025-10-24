@@ -730,7 +730,7 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       color: palette.surface,
     },
     carouselItem: {
-      width: 280,
+      width: 310,
       marginRight: 12,
     },
     carouselItemLast: {

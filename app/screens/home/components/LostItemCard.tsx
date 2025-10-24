@@ -191,7 +191,7 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: scheme === "dark" ? 0.35 : 0.1,
       shadowRadius: 6,
-      elevation: 3,
+      // elevation: 3,
     },
     thumbnail: {
       width: 84,
