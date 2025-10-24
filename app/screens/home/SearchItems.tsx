@@ -23,6 +23,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -427,15 +428,28 @@ export default function SearchItems() {
     fetchPage(pageState.page + 1, "append");
   }, [fetchPage, isInitialLoading, isLoadingMore, pageState]);
 
-  const filtersActive = useMemo(() => {
-    return (
-      filters.categories.length > 0 ||
-      filters.dateRange !== "any" ||
-      filters.status !== null ||
+  const activeFilterCount = useMemo(() => {
+    let count = filters.categories.length;
+
+    if (filters.dateRange !== "any") {
+      count += 1;
+    }
+
+    if (filters.status !== null) {
+      count += 1;
+    }
+
+    if (
       filters.sortBy !== DEFAULT_SORT_OPTION.sortBy ||
       filters.sortOrder !== DEFAULT_SORT_OPTION.sortOrder
-    );
+    ) {
+      count += 1;
+    }
+
+    return count;
   }, [filters]);
+
+  const filtersActive = activeFilterCount > 0;
 
   const totalResultsLabel = useMemo(() => {
     if (isInitialLoading) {
@@ -663,6 +677,11 @@ export default function SearchItems() {
             >
               Filters
             </Text>
+            {activeFilterCount > 0 ? (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
         </View>
 
@@ -842,278 +861,295 @@ function FilterModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable style={styles.modalCard} onPress={() => {}}>
-          <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderTitleRow}>
-              <View style={styles.modalHeaderIconBadge}>
-                <Ionicons
-                  name="funnel-outline"
-                  size={18}
-                  color={palette.primary}
-                />
-              </View>
-              <View>
-                <Text style={styles.modalTitle}>Refine results</Text>
-                <Text style={styles.modalSubtitle}>
-                  Update filters & sorting
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity onPress={onClose} hitSlop={12}>
-              <Ionicons name="close" size={22} color={palette.text} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            style={styles.modalScroll}
-            contentContainerStyle={styles.modalScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.modalSection}>
-              <View style={styles.modalSectionHeader}>
-                <Text style={styles.modalSectionTitle}>Categories</Text>
-                <Text style={styles.modalSectionHint}>
-                  Choose one or more to refine your search.
-                </Text>
-              </View>
-              <View style={styles.chipGroup}>
-                {CATEGORY_OPTIONS.map((option) => {
-                  const isActive =
-                    option.value === null
-                      ? filters.categories.length === 0
-                      : filters.categories.includes(option.value);
-                  const iconColor = isActive
-                    ? palette.surface
-                    : palette.textSecondary;
-
-                  return (
-                    <TouchableOpacity
-                      key={option.label}
-                      style={[styles.chip, isActive ? styles.chipActive : null]}
-                      onPress={() => toggleCategory(option.value)}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons
-                        name={option.icon}
-                        size={16}
-                        color={iconColor}
-                        style={styles.chipIcon}
-                      />
-                      <Text
-                        style={[
-                          styles.chipLabel,
-                          isActive ? styles.chipLabelActive : null,
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.modalSection}>
-              <View style={styles.modalSectionHeader}>
-                <Text style={styles.modalSectionTitle}>Status</Text>
-                <Text style={styles.modalSectionHint}>
-                  Match the current state of the item.
-                </Text>
-              </View>
-              <View style={styles.chipGroup}>
-                {STATUS_OPTIONS.map((option) => {
-                  const isActive = filters.status === option.value;
-                  const iconColor = isActive
-                    ? palette.surface
-                    : palette.textSecondary;
-
-                  return (
-                    <TouchableOpacity
-                      key={option.label}
-                      style={[styles.chip, isActive ? styles.chipActive : null]}
-                      onPress={() => handleStatusChange(option.value)}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons
-                        name={option.icon}
-                        size={16}
-                        color={iconColor}
-                        style={styles.chipIcon}
-                      />
-                      <Text
-                        style={[
-                          styles.chipLabel,
-                          isActive ? styles.chipLabelActive : null,
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.modalSection}>
-              <View style={styles.modalSectionHeader}>
-                <Text style={styles.modalSectionTitle}>Date range</Text>
-                <Text style={styles.modalSectionHint}>
-                  Use quick presets or pick a custom span.
-                </Text>
-              </View>
-              <View style={styles.chipGroup}>
-                {DATE_RANGE_OPTIONS.map((option) => {
-                  const isActive = filters.dateRange === option.value;
-                  const iconColor = isActive
-                    ? palette.surface
-                    : palette.textSecondary;
-
-                  return (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={[styles.chip, isActive ? styles.chipActive : null]}
-                      onPress={() =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          dateRange: option.value,
-                          ...(option.value === "custom"
-                            ? {}
-                            : { customFrom: null, customTo: null }),
-                        }))
-                      }
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons
-                        name={option.icon}
-                        size={16}
-                        color={iconColor}
-                        style={styles.chipIcon}
-                      />
-                      <Text
-                        style={[
-                          styles.chipLabel,
-                          isActive ? styles.chipLabelActive : null,
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {filters.dateRange === "custom" ? (
-                <View style={styles.customRangeRow}>
-                  <TouchableOpacity
-                    style={styles.customRangeButton}
-                    onPress={() => openDatePicker("from")}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons
-                      name="calendar-outline"
-                      size={16}
-                      color={palette.textSecondary}
-                    />
-                    <Text style={styles.customRangeLabel}>
-                      {filters.customFrom
-                        ? formatDateForDisplay(filters.customFrom)
-                        : "Start date"}
-                    </Text>
-                  </TouchableOpacity>
+      <View style={styles.modalOverlay}>
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.modalBackdrop} />
+        </TouchableWithoutFeedback>
+        <View style={styles.modalCardContainer}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderTitleRow}>
+                <View style={styles.modalHeaderIconBadge}>
                   <Ionicons
-                    name="arrow-forward"
-                    size={16}
-                    color={palette.textSecondary}
+                    name="funnel-outline"
+                    size={18}
+                    color={palette.primary}
                   />
-                  <TouchableOpacity
-                    style={styles.customRangeButton}
-                    onPress={() => openDatePicker("to")}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons
-                      name="calendar-outline"
-                      size={16}
-                      color={palette.textSecondary}
-                    />
-                    <Text style={styles.customRangeLabel}>
-                      {filters.customTo
-                        ? formatDateForDisplay(filters.customTo)
-                        : "End date"}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
-              ) : null}
-              {customRangeError ? (
-                <Text style={styles.modalErrorText}>{customRangeError}</Text>
-              ) : null}
-            </View>
-
-            <View style={styles.modalSection}>
-              <View style={styles.modalSectionHeader}>
-                <Text style={styles.modalSectionTitle}>Sort by</Text>
-                <Text style={styles.modalSectionHint}>
-                  Control the order of matching items.
-                </Text>
+                <View>
+                  <Text style={styles.modalTitle}>Refine results</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Update filters & sorting
+                  </Text>
+                </View>
               </View>
-              <View style={styles.chipGroup}>
-                {SORT_OPTIONS.map((option) => {
-                  const isActive =
-                    filters.sortBy === option.sortBy &&
-                    filters.sortOrder === option.sortOrder;
-                  const iconColor = isActive
-                    ? palette.surface
-                    : palette.textSecondary;
-                  return (
+              <TouchableOpacity onPress={onClose} hitSlop={12}>
+                <Ionicons name="close" size={22} color={palette.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.modalScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.modalSection}>
+                <View style={styles.modalSectionHeader}>
+                  <Text style={styles.modalSectionTitle}>Categories</Text>
+                  <Text style={styles.modalSectionHint}>
+                    Choose one or more to refine your search.
+                  </Text>
+                </View>
+                <View style={styles.chipGroup}>
+                  {CATEGORY_OPTIONS.map((option) => {
+                    const isActive =
+                      option.value === null
+                        ? filters.categories.length === 0
+                        : filters.categories.includes(option.value);
+                    const iconColor = isActive
+                      ? palette.surface
+                      : palette.textSecondary;
+
+                    return (
+                      <TouchableOpacity
+                        key={option.label}
+                        style={[
+                          styles.chip,
+                          isActive ? styles.chipActive : null,
+                        ]}
+                        onPress={() => toggleCategory(option.value)}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons
+                          name={option.icon}
+                          size={16}
+                          color={iconColor}
+                          style={styles.chipIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.chipLabel,
+                            isActive ? styles.chipLabelActive : null,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.modalSection}>
+                <View style={styles.modalSectionHeader}>
+                  <Text style={styles.modalSectionTitle}>Status</Text>
+                  <Text style={styles.modalSectionHint}>
+                    Match the current state of the item.
+                  </Text>
+                </View>
+                <View style={styles.chipGroup}>
+                  {STATUS_OPTIONS.map((option) => {
+                    const isActive = filters.status === option.value;
+                    const iconColor = isActive
+                      ? palette.surface
+                      : palette.textSecondary;
+
+                    return (
+                      <TouchableOpacity
+                        key={option.label}
+                        style={[
+                          styles.chip,
+                          isActive ? styles.chipActive : null,
+                        ]}
+                        onPress={() => handleStatusChange(option.value)}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons
+                          name={option.icon}
+                          size={16}
+                          color={iconColor}
+                          style={styles.chipIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.chipLabel,
+                            isActive ? styles.chipLabelActive : null,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.modalSection}>
+                <View style={styles.modalSectionHeader}>
+                  <Text style={styles.modalSectionTitle}>Date range</Text>
+                  <Text style={styles.modalSectionHint}>
+                    Use quick presets or pick a custom span.
+                  </Text>
+                </View>
+                <View style={styles.chipGroup}>
+                  {DATE_RANGE_OPTIONS.map((option) => {
+                    const isActive = filters.dateRange === option.value;
+                    const iconColor = isActive
+                      ? palette.surface
+                      : palette.textSecondary;
+
+                    return (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[
+                          styles.chip,
+                          isActive ? styles.chipActive : null,
+                        ]}
+                        onPress={() =>
+                          setFilters((prev) => ({
+                            ...prev,
+                            dateRange: option.value,
+                            ...(option.value === "custom"
+                              ? {}
+                              : { customFrom: null, customTo: null }),
+                          }))
+                        }
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons
+                          name={option.icon}
+                          size={16}
+                          color={iconColor}
+                          style={styles.chipIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.chipLabel,
+                            isActive ? styles.chipLabelActive : null,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {filters.dateRange === "custom" ? (
+                  <View style={styles.customRangeRow}>
                     <TouchableOpacity
-                      key={option.label}
-                      style={[styles.chip, isActive ? styles.chipActive : null]}
-                      onPress={() =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          sortBy: option.sortBy,
-                          sortOrder: option.sortOrder,
-                        }))
-                      }
+                      style={styles.customRangeButton}
+                      onPress={() => openDatePicker("from")}
                       activeOpacity={0.85}
                     >
                       <Ionicons
-                        name={option.icon}
+                        name="calendar-outline"
                         size={16}
-                        color={iconColor}
-                        style={styles.chipIcon}
+                        color={palette.textSecondary}
                       />
-                      <Text
-                        style={[
-                          styles.chipLabel,
-                          isActive ? styles.chipLabelActive : null,
-                        ]}
-                      >
-                        {option.label}
+                      <Text style={styles.customRangeLabel}>
+                        {filters.customFrom
+                          ? formatDateForDisplay(filters.customFrom)
+                          : "Start date"}
                       </Text>
                     </TouchableOpacity>
-                  );
-                })}
+                    <Ionicons
+                      name="arrow-forward"
+                      size={16}
+                      color={palette.textSecondary}
+                    />
+                    <TouchableOpacity
+                      style={styles.customRangeButton}
+                      onPress={() => openDatePicker("to")}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons
+                        name="calendar-outline"
+                        size={16}
+                        color={palette.textSecondary}
+                      />
+                      <Text style={styles.customRangeLabel}>
+                        {filters.customTo
+                          ? formatDateForDisplay(filters.customTo)
+                          : "End date"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+                {customRangeError ? (
+                  <Text style={styles.modalErrorText}>{customRangeError}</Text>
+                ) : null}
               </View>
+
+              <View style={styles.modalSection}>
+                <View style={styles.modalSectionHeader}>
+                  <Text style={styles.modalSectionTitle}>Sort by</Text>
+                  <Text style={styles.modalSectionHint}>
+                    Control the order of matching items.
+                  </Text>
+                </View>
+                <View style={styles.chipGroup}>
+                  {SORT_OPTIONS.map((option) => {
+                    const isActive =
+                      filters.sortBy === option.sortBy &&
+                      filters.sortOrder === option.sortOrder;
+                    const iconColor = isActive
+                      ? palette.surface
+                      : palette.textSecondary;
+                    return (
+                      <TouchableOpacity
+                        key={option.label}
+                        style={[
+                          styles.chip,
+                          isActive ? styles.chipActive : null,
+                        ]}
+                        onPress={() =>
+                          setFilters((prev) => ({
+                            ...prev,
+                            sortBy: option.sortBy,
+                            sortOrder: option.sortOrder,
+                          }))
+                        }
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons
+                          name={option.icon}
+                          size={16}
+                          color={iconColor}
+                          style={styles.chipIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.chipLabel,
+                            isActive ? styles.chipLabelActive : null,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalSecondaryButton}
+                onPress={onReset}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalSecondaryLabel}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalPrimaryButton}
+                onPress={onApply}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalPrimaryLabel}>Apply</Text>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
-          <View style={styles.modalFooter}>
-            <TouchableOpacity
-              style={styles.modalSecondaryButton}
-              onPress={onReset}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalSecondaryLabel}>Reset</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalPrimaryButton}
-              onPress={onApply}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalPrimaryLabel}>Apply</Text>
-            </TouchableOpacity>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -1270,7 +1306,7 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       flex: 1,
       fontSize: 15,
       color: palette.text,
-      paddingVertical: 4
+      paddingVertical: 4,
     },
     clearSearchButton: {
       padding: 2,
@@ -1290,6 +1326,20 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
     filterButtonText: {
       fontSize: 14,
       fontWeight: "600",
+      color: palette.primary,
+    },
+    filterBadge: {
+      minWidth: 20,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 999,
+      backgroundColor: palette.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    filterBadgeText: {
+      fontSize: 12,
+      fontWeight: "700",
       color: palette.primary,
     },
     inlineError: {
@@ -1386,6 +1436,11 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       flex: 1,
       backgroundColor: "rgba(6,10,18,0.55)",
       justifyContent: "flex-end",
+    },
+    modalBackdrop: {
+      flex: 1,
+    },
+    modalCardContainer: {
       padding: 18,
     },
     modalCard: {
