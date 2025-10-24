@@ -380,7 +380,7 @@ export default function Landing() {
         onRequestClose={handleCloseMenu}
       >
         <Pressable style={styles.menuOverlay} onPress={handleCloseMenu}>
-          <Pressable style={styles.menuContainer} onPress={() => {}}>
+          <Pressable style={styles.menuContainer} onPress={handleViewProfile}>
             <View style={styles.menuHeader}>
               {profilePhoto ? (
                 <Image
@@ -406,14 +406,13 @@ export default function Landing() {
                 ) : null}
               </View>
             </View>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={styles.menuItem}
               onPress={handleViewProfile}
             >
               <Ionicons name="person-outline" size={18} color={palette.text} />
               <Text style={styles.menuItemText}>View Profile</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <View style={styles.menuDivider} />
             <View style={styles.menuSectionHeader}>
               <Text style={styles.menuSectionLabel}>Theme</Text>
