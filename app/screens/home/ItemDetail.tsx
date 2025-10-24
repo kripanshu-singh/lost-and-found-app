@@ -479,13 +479,7 @@ export default function ItemDetail() {
         ))}
       </ScrollView>
       <View style={styles.heroTopBar}>
-        <TouchableOpacity
-          style={styles.heroIconButton}
-          onPress={handleClose}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="chevron-back" size={22} color={palette.surface} />
-        </TouchableOpacity>
+       
         <TouchableOpacity
           style={styles.heroIconButton}
           onPress={handleShare}
@@ -1012,7 +1006,7 @@ function buildMapUrl(item: LostItemDetail): string | null {
     return `https://www.google.com/maps/search/?api=1&query=${item.latitude},${item.longitude}`;
   }
   if (item.locationFound) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.locationFound)}`;
+    return `https://www.google.com/maps/search/?api=1&query=VBPSU, ${encodeURIComponent(item.locationFound)}, Veer Bahadur Singh Purvanchal University, Jaunpur, Uttar Pradesh, India`;
   }
   return null;
 }
@@ -1204,7 +1198,7 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       shadowOffset: { width: 0, height: 6 },
       shadowOpacity: scheme === "dark" ? 0.3 : 0.12,
       shadowRadius: 12,
-      elevation: 5,
+      elevation: 3,
       gap: 18,
     },
     sectionHeading: {

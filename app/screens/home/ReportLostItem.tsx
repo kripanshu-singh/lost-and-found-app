@@ -1123,9 +1123,7 @@ type FormHeaderProps = {
 function FormHeader({ styles, palette, onBack }: FormHeaderProps) {
   return (
     <View style={styles.headerRow}>
-      <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={12}>
-        <Ionicons name="chevron-back" size={24} color={palette.text} />
-      </TouchableOpacity>
+    
       <Text style={styles.title}>Report Lost Item</Text>
       <View style={{ width: 32 }} />
     </View>

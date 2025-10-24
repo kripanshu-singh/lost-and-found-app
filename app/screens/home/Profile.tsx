@@ -672,7 +672,7 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       shadowOffset: { width: 0, height: 12 },
       shadowOpacity: scheme === "dark" ? 0.35 : 0.08,
       shadowRadius: 24,
-      elevation: 12,
+      elevation: 4,
     },
     avatarWrapper: {
       width: 72,
@@ -729,7 +729,7 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: scheme === "dark" ? 0.28 : 0.1,
       shadowRadius: 24,
-      elevation: 12,
+      elevation: 4,
     },
     statsSummaryColumn: {
       flex: 1,
@@ -859,7 +859,6 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.25,
       shadowRadius: 20,
-      elevation: 10,
     },
     dangerButtonText: {
       fontSize: 15,

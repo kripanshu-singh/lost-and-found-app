@@ -316,13 +316,6 @@ export default function CreateAlert() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBack}
-              hitSlop={12}
-            >
-              <Ionicons name="chevron-back" size={22} color={palette.text} />
-            </TouchableOpacity>
             <Text style={styles.title}>Create Lost Item Alert</Text>
             <View style={{ width: 32 }} />
           </View>

@@ -175,17 +175,6 @@ export default function EditProfileScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.headerRow}>
-              <TouchableOpacity
-                onPress={handleBack}
-                hitSlop={12}
-                style={styles.backButton}
-              >
-                <Ionicons
-                  name="chevron-back"
-                  size={22}
-                  color={palette.primary}
-                />
-              </TouchableOpacity>
               <Text style={styles.pageTitle}>Edit profile</Text>
               <View style={styles.headerSpacer} />
             </View>

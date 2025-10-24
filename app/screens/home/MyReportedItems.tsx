@@ -129,13 +129,6 @@ export default function MyReportedItemsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-            hitSlop={12}
-          >
-            <Ionicons name="chevron-back" size={22} color={palette.primary} />
-          </TouchableOpacity>
           <View style={styles.headerText}>
             <Text style={styles.pageTitle}>My reports</Text>
             <Text style={styles.pageSubtitle}>
