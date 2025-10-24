@@ -1264,13 +1264,13 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       paddingHorizontal: 14,
       paddingVertical: Platform.OS === "android" ? 6 : 10,
       gap: 10,
-      marginBottom: 16,
+      // marginBottom: 16,
     },
     searchInput: {
       flex: 1,
       fontSize: 15,
       color: palette.text,
-      paddingVertical: Platform.OS === "android" ? 0 : 4,
+      paddingVertical: 4
     },
     clearSearchButton: {
       padding: 2,
