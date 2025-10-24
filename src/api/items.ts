@@ -40,6 +40,16 @@ export interface ItemPersonReference {
     profilePhoto?: string | null;
 }
 
+export type ItemClaimStatus = "PENDING" | "APPROVED" | "REJECTED" | string;
+
+export interface ItemClaimRecord {
+    id: number;
+    itemId: number;
+    status: ItemClaimStatus;
+    createdAt?: string | null;
+    claimer?: ItemPersonReference | null;
+}
+
 export interface PagedLostItems {
     items: LostItemSummary[];
     page: number;
@@ -227,7 +237,8 @@ function normalizeLostItemSummary(raw: unknown): LostItemSummary | null {
     const category = normalizeItemCategory(record.category ?? record.itemCategory);
 
     const postedBySource = record.postedBy ?? record.reportedBy ?? record.user;
-    const claimedBySource = record.claimedBy ?? record.claimer;
+    const claimedBySource =
+        record.approvedClaimer ?? record.claimedBy ?? record.claimer ?? record.latestApprovedClaimer;
 
     const postedByUserId = coerceNumber(
         (postedBySource && typeof postedBySource === "object"
@@ -508,7 +519,8 @@ export interface LostItemDetail extends LostItemSummary {
     reportedByEmail?: string | null;
     reportedByPhone?: string | null;
     postedBy?: ItemPersonReference;
-    claimedBy?: ItemPersonReference | null;
+    approvedClaimer?: ItemPersonReference | null;
+    claims?: ItemClaimRecord[];
 }
 
 type ItemDetailApiResponse = {
