@@ -381,6 +381,7 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
     },
     safeArea: {
       flex: 1,
+      paddingVertical: 32,
     },
     keyboardContainer: {
       flex: 1,
