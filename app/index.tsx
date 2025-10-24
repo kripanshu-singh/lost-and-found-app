@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Palette, useAppTheme } from "../src/theme";
 
@@ -13,7 +13,6 @@ export default function Index() {
 
   const primaryOptions = useMemo(
     () => [
-
       {
         label: "Sign up with email",
         icon: "mail-outline",
@@ -93,8 +92,8 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       gap: 16,
     },
     heroLogo: {
-      width: 96,
-      height: 96,
+      width: 132,
+      height: 132,
       borderRadius: 24,
     },
     heroTitle: {
@@ -130,7 +129,7 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      borderRadius: 18,
+      borderRadius: 25,
       paddingVertical: 16,
       paddingHorizontal: 22,
     },
@@ -141,8 +140,8 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
     },
     primaryButton: {
       backgroundColor: palette.primary,
-      borderWidth: 1,
-      borderColor: palette.primaryStrong,
+      borderRadius: 25,
+      alignItems: "center",
     },
     primaryLabel: {
       fontSize: 16,
@@ -153,7 +152,9 @@ function createStyles(palette: Palette, scheme: "light" | "dark") {
       borderWidth: 1,
       borderColor:
         scheme === "dark" ? "rgba(255,255,255,0.35)" : palette.border,
-      backgroundColor: scheme === "dark" ? "transparent" : palette.surface,
+      backgroundColor: scheme === "dark" ? palette.background : palette.surface,
+      borderRadius: 25,
+      alignItems: "center",
     },
     secondaryLabel: {
       flex: 1,
