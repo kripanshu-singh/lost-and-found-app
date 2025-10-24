@@ -275,6 +275,10 @@ export default function ItemDetail() {
     return formatCoordinates(item.latitude, item.longitude);
   }, [item]);
 
+  const statusNormalized = useMemo(() => {
+    return (item?.status ?? "").toUpperCase();
+  }, [item?.status]);
+
   const isOwner = useMemo(() => {
     if (!item || !session?.userId) {
       return false;
@@ -283,57 +287,139 @@ export default function ItemDetail() {
     return reporterId === session.userId;
   }, [item, session?.userId]);
 
+  const userClaim = useMemo(() => {
+    if (!Array.isArray(item?.claims) || !session?.userId) {
+      return null;
+    }
+    return (
+      item.claims.find((claim) => claim.claimer?.id === session.userId) ?? null
+    );
+  }, [item?.claims, session?.userId]);
+
+  const userClaimStatus = useMemo(() => {
+    return (userClaim?.status ?? "").toString().toUpperCase();
+  }, [userClaim?.status]);
+
   const hasClaimed = useMemo(() => {
-    if (!item || !session?.userId) {
+    return Boolean(userClaim);
+  }, [userClaim]);
+
+  const isUserClaimPending = useMemo(() => {
+    if (!userClaimStatus) {
       return false;
     }
-    const claimedId = item.claimedBy?.id ?? item.claimedByUserId ?? null;
-    return claimedId === session.userId;
-  }, [item, session?.userId]);
+    return (
+      userClaimStatus.startsWith("PENDING") ||
+      userClaimStatus === "UNDER_REVIEW" ||
+      userClaimStatus === "IN_REVIEW"
+    );
+  }, [userClaimStatus]);
+
+  const isUserClaimApproved = useMemo(() => {
+    if (!userClaimStatus) {
+      return false;
+    }
+    return (
+      userClaimStatus === "APPROVED" ||
+      userClaimStatus === "VERIFIED" ||
+      userClaimStatus === "APPROVED_FOR_PICKUP"
+    );
+  }, [userClaimStatus]);
 
   const isAvailableForClaim = useMemo(() => {
-    return (item?.status ?? "").toLowerCase() === "available";
-  }, [item?.status]);
+    return statusNormalized === "AVAILABLE";
+  }, [statusNormalized]);
+
+  const isPendingVerification = useMemo(() => {
+    return statusNormalized === "PENDING_VERIFICATION";
+  }, [statusNormalized]);
+
+  const isClaimedStatus = useMemo(() => {
+    return statusNormalized === "CLAIMED";
+  }, [statusNormalized]);
+
+  const dropOffLocation = useMemo(() => {
+    return item?.locationFound || "the designated drop-off point";
+  }, [item?.locationFound]);
+
+  const claimableStatus = useMemo(() => {
+    return isAvailableForClaim || isPendingVerification;
+  }, [isAvailableForClaim, isPendingVerification]);
 
   const canAttemptClaim = useMemo(() => {
     if (!session || !item) {
       return false;
     }
-    return !isOwner && isAvailableForClaim && !hasClaimed;
-  }, [session, item, isOwner, isAvailableForClaim, hasClaimed]);
+    return !isOwner && claimableStatus && !hasClaimed;
+  }, [session, item, isOwner, claimableStatus, hasClaimed]);
 
   const canAttemptUnclaim = useMemo(() => {
     if (!session || !item) {
       return false;
     }
-    return !isOwner && hasClaimed;
-  }, [session, item, isOwner, hasClaimed]);
+    if (!userClaim) {
+      return false;
+    }
+    return !isOwner && isUserClaimPending;
+  }, [session, item, isOwner, isUserClaimPending, userClaim]);
 
   const claimButtonLabel = useMemo(() => {
     if (isClaiming) {
-      return "Claiming…";
+      return "Submitting claim…";
     }
-    if (hasClaimed) {
-      return "You claimed this item";
+    if (isUserClaimApproved) {
+      return "Claim approved";
+    }
+    if (isUserClaimPending) {
+      return "Claim submitted";
+    }
+    if (isClaimedStatus) {
+      return "Item already claimed";
+    }
+    if (isPendingVerification) {
+      return "Submit a claim";
     }
     if (!isAvailableForClaim) {
-      return "Item not available";
+      return "Not available";
     }
     return "Claim this item";
-  }, [isClaiming, hasClaimed, isAvailableForClaim]);
+  }, [
+    isClaiming,
+    isAvailableForClaim,
+    isPendingVerification,
+    isClaimedStatus,
+    isUserClaimApproved,
+    isUserClaimPending,
+  ]);
 
   const claimButtonIcon = useMemo<keyof typeof Ionicons.glyphMap | null>(() => {
     if (isClaiming) {
       return null;
     }
-    if (hasClaimed) {
+    if (isUserClaimApproved) {
       return "checkmark-circle";
+    }
+    if (isUserClaimPending) {
+      return "time-outline";
+    }
+    if (isClaimedStatus) {
+      return "lock-closed-outline";
+    }
+    if (isPendingVerification) {
+      return "time-outline";
     }
     if (!isAvailableForClaim) {
       return "lock-closed-outline";
     }
     return "hand-right-outline";
-  }, [isClaiming, hasClaimed, isAvailableForClaim]);
+  }, [
+    isClaiming,
+    isAvailableForClaim,
+    isPendingVerification,
+    isClaimedStatus,
+    isUserClaimApproved,
+    isUserClaimPending,
+  ]);
 
   const handleEditItem = useCallback(() => {
     if (!item?.id) {
@@ -353,6 +439,11 @@ export default function ItemDetail() {
     try {
       const result = await claimLostItem(item.id);
       setItem(result.item);
+      const locationForMessage = result.item?.locationFound || dropOffLocation;
+      Alert.alert(
+        "Claim submitted",
+        `Your claim has been submitted. Please visit ${locationForMessage} and provide your proof of ownership to complete verification.`,
+      );
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -362,7 +453,7 @@ export default function ItemDetail() {
     } finally {
       setIsClaiming(false);
     }
-  }, [item?.id, session]);
+  }, [item?.id, session, dropOffLocation]);
 
   const handleUnclaimItem = useCallback(async () => {
     if (!item?.id || !session) {
@@ -479,7 +570,6 @@ export default function ItemDetail() {
         ))}
       </ScrollView>
       <View style={styles.heroTopBar}>
-       
         <TouchableOpacity
           style={styles.heroIconButton}
           onPress={handleShare}
@@ -617,15 +707,137 @@ export default function ItemDetail() {
           <View style={styles.personDivider} />
           <PersonRow
             title="Claimed by"
-            person={item?.claimedBy}
-            fallbackLabel="No one has claimed this yet"
+            person={item?.approvedClaimer}
+            fallbackLabel="No approved claimer yet"
             icon="ribbon-outline"
           />
         </View>
 
         <View style={styles.card}>
           <Text style={styles.sectionHeading}>Quick actions</Text>
-          {!isOwner && session ? (
+          {isClaimedStatus ? (
+            <View style={[styles.statusNotice, styles.claimedNotice]}>
+              <Ionicons
+                name="shield-checkmark"
+                size={20}
+                color={scheme === "dark" ? palette.surface : palette.primary}
+                style={styles.statusNoticeIcon}
+              />
+              <View style={styles.statusNoticeContent}>
+                <Text
+                  style={[
+                    styles.statusNoticeTitle,
+                    scheme === "dark" ? styles.statusNoticeTitleOnDark : null,
+                  ]}
+                >
+                  This item has been claimed
+                </Text>
+                <Text
+                  style={[
+                    styles.statusNoticeBody,
+                    scheme === "dark" ? styles.statusNoticeBodyOnDark : null,
+                  ]}
+                >
+                  A staff member has verified ownership and removed the item
+                  from circulation.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {!isClaimedStatus && isUserClaimPending ? (
+            <View style={[styles.statusNotice, styles.pendingNotice]}>
+              <Ionicons
+                name="time-outline"
+                size={20}
+                color={palette.primary}
+                style={styles.statusNoticeIcon}
+              />
+              <View style={styles.statusNoticeContent}>
+                <Text style={styles.statusNoticeTitle}>Claim submitted</Text>
+                <Text style={styles.statusNoticeBody}>
+                  Please visit {dropOffLocation} and provide your proof of
+                  ownership to complete verification.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {!isClaimedStatus && isUserClaimApproved ? (
+            <View style={[styles.statusNotice, styles.claimedNotice]}>
+              <Ionicons
+                name="shield-checkmark"
+                size={20}
+                color={scheme === "dark" ? palette.surface : palette.primary}
+                style={styles.statusNoticeIcon}
+              />
+              <View style={styles.statusNoticeContent}>
+                <Text
+                  style={[
+                    styles.statusNoticeTitle,
+                    scheme === "dark" ? styles.statusNoticeTitleOnDark : null,
+                  ]}
+                >
+                  Claim approved
+                </Text>
+                <Text
+                  style={[
+                    styles.statusNoticeBody,
+                    scheme === "dark" ? styles.statusNoticeBodyOnDark : null,
+                  ]}
+                >
+                  Campus staff have approved your claim. Please collect the item
+                  from {dropOffLocation}.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {!isClaimedStatus && !hasClaimed && isPendingVerification ? (
+            <View
+              style={[
+                styles.statusNotice,
+                styles.infoNotice,
+                scheme === "dark"
+                  ? styles.infoNoticeDark
+                  : styles.infoNoticeLight,
+              ]}
+            >
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color={
+                  scheme === "dark" ? palette.primarySoft : palette.primary
+                }
+                style={styles.statusNoticeIcon}
+              />
+              <View style={styles.statusNoticeContent}>
+                <Text
+                  style={[
+                    styles.statusNoticeTitle,
+                    scheme === "dark"
+                      ? styles.statusNoticeTitleOnDark
+                      : styles.statusNoticeTitleOnLight,
+                  ]}
+                >
+                  Verification in progress
+                </Text>
+                <Text
+                  style={[
+                    styles.statusNoticeBody,
+                    scheme === "dark"
+                      ? styles.statusNoticeBodyOnDark
+                      : styles.statusNoticeBodyOnLight,
+                  ]}
+                >
+                  A campus staff member is reviewing submitted claims. You can
+                  still submit your own claim below.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {!isOwner && session && !isClaimedStatus ? (
             <TouchableOpacity
               style={[
                 styles.claimButton,
@@ -664,7 +876,10 @@ export default function ItemDetail() {
               </Text>
             </TouchableOpacity>
           ) : null}
-          {!isOwner && session && hasClaimed ? (
+          {!isOwner &&
+          session &&
+          hasClaimed &&
+          (canAttemptUnclaim || isUnclaiming) ? (
             <TouchableOpacity
               style={[
                 styles.unclaimButton,
@@ -689,7 +904,7 @@ export default function ItemDetail() {
                 />
               )}
               <Text style={styles.unclaimButtonText}>
-                {isUnclaiming ? "Releasing…" : "Unclaim this item"}
+                {isUnclaiming ? "Releasing…" : "Withdraw claim"}
               </Text>
             </TouchableOpacity>
           ) : null}
@@ -867,7 +1082,7 @@ export default function ItemDetail() {
 
 type PersonRowProps = {
   title: string;
-  person: LostItemDetail["postedBy"] | LostItemDetail["claimedBy"];
+  person: LostItemDetail["postedBy"] | LostItemDetail["approvedClaimer"];
   fallbackLabel: string;
   icon: keyof typeof Ionicons.glyphMap;
 };
@@ -1024,6 +1239,15 @@ function resolveStatusVariant(
         scheme === "dark" ? "rgba(245,166,35,0.28)" : "rgba(245,166,35,0.18)",
       textColor: scheme === "dark" ? "#ffd48b" : "#b8740a",
       icon: "ribbon-outline" as const,
+    };
+  }
+  if (normalized === "pending_verification") {
+    return {
+      label: "Pending verification",
+      background:
+        scheme === "dark" ? "rgba(59,130,246,0.26)" : "rgba(59,130,246,0.16)",
+      textColor: scheme === "dark" ? "#9ec5ff" : "#1d4ed8",
+      icon: "time-outline" as const,
     };
   }
   if (normalized === "available") {
@@ -1200,6 +1424,68 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       shadowRadius: 12,
       elevation: 3,
       gap: 18,
+    },
+    statusNotice: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: 12,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderWidth: 1,
+      borderColor: palette.border,
+    },
+    pendingNotice: {
+      backgroundColor:
+        scheme === "dark" ? "rgba(59,130,246,0.18)" : "rgba(59,130,246,0.12)",
+      borderColor:
+        scheme === "dark" ? "rgba(99,155,255,0.45)" : "rgba(59,130,246,0.28)",
+    },
+    claimedNotice: {
+      backgroundColor:
+        scheme === "dark" ? "rgba(34,197,94,0.26)" : "rgba(34,197,94,0.18)",
+      borderColor:
+        scheme === "dark" ? "rgba(134,239,172,0.55)" : "rgba(34,197,94,0.45)",
+    },
+    statusNoticeIcon: {
+      marginTop: 2,
+    },
+    statusNoticeContent: {
+      flex: 1,
+      gap: 4,
+    },
+    statusNoticeTitle: {
+      fontSize: 14,
+      fontWeight: "700",
+      color: palette.text,
+    },
+    statusNoticeBody: {
+      fontSize: 13,
+      color: palette.textSecondary,
+      lineHeight: 18,
+    },
+    statusNoticeTitleOnDark: {
+      color: palette.text,
+    },
+    statusNoticeBodyOnDark: {
+      color: "rgba(255,255,255,0.78)",
+    },
+    statusNoticeTitleOnLight: {
+      color: palette.text,
+    },
+    statusNoticeBodyOnLight: {
+      color: palette.textSecondary,
+    },
+    infoNotice: {
+      borderWidth: 1,
+    },
+    infoNoticeDark: {
+      backgroundColor: "rgba(59,130,246,0.14)",
+      borderColor: "rgba(145,194,255,0.32)",
+    },
+    infoNoticeLight: {
+      backgroundColor: "rgba(59,130,246,0.1)",
+      borderColor: "rgba(59,130,246,0.22)",
     },
     sectionHeading: {
       fontSize: 16,
