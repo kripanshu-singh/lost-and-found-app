@@ -1,8 +1,10 @@
+import * as SecureStore from "expo-secure-store";
 import React, {
   createContext,
   ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -65,12 +67,52 @@ const ThemeContext = createContext<ThemeValue>({
   },
 });
 
+const THEME_PREFERENCE_KEY = "lostFound.themePreference";
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme();
-  const [preference, setPreference] = useState<ThemePreference>("system");
+  const [preference, setPreferenceState] = useState<ThemePreference>("system");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const hydratePreference = async () => {
+      try {
+        const storedValue =
+          await SecureStore.getItemAsync(THEME_PREFERENCE_KEY);
+        if (!storedValue || !isMounted) {
+          return;
+        }
+
+        if (
+          storedValue === "light" ||
+          storedValue === "dark" ||
+          storedValue === "system"
+        ) {
+          setPreferenceState(storedValue);
+        }
+      } catch (error) {
+        console.warn("[ThemeProvider] Failed to load theme preference", error);
+      }
+    };
+
+    void hydratePreference();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSetPreference = useCallback((value: ThemePreference) => {
-    setPreference(value);
+    setPreferenceState(value);
+    void SecureStore.setItemAsync(THEME_PREFERENCE_KEY, value).catch(
+      (error) => {
+        console.warn(
+          "[ThemeProvider] Failed to persist theme preference",
+          error,
+        );
+      },
+    );
   }, []);
 
   const scheme: "light" | "dark" =
