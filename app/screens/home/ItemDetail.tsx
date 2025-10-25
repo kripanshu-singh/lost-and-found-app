@@ -456,13 +456,13 @@ export default function ItemDetail() {
   }, [item?.id, session, dropOffLocation]);
 
   const handleUnclaimItem = useCallback(async () => {
-    if (!item?.id || !session) {
+    if (!userClaim?.id || !session) {
       return;
     }
 
     setIsUnclaiming(true);
     try {
-      const result = await unclaimLostItem(item.id);
+      const result = await unclaimLostItem(userClaim.id);
       setItem(result.item);
     } catch (error) {
       const message =
@@ -473,7 +473,7 @@ export default function ItemDetail() {
     } finally {
       setIsUnclaiming(false);
     }
-  }, [item?.id, session]);
+  }, [session, userClaim?.id]);
 
   const performDeleteItem = useCallback(async () => {
     const itemId = item?.id;

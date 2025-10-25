@@ -56,6 +56,8 @@ const Register = () => {
       return;
     }
 
+    Keyboard.dismiss();
+
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedPassword = password.trim();

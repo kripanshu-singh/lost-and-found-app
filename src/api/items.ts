@@ -642,26 +642,25 @@ export async function claimLostItem(
 }
 
 export async function unclaimLostItem(
-    id: number,
+    claimId: number,
     config?: HttpRequestConfig,
 ): Promise<ItemClaimMutationResult> {
     const requestConfig: HttpRequestConfig = {
         ...(config ?? {}),
     };
 
-    console.log("[itemsApi] unclaimLostItem start", { id });
+    console.log("[itemsApi] unclaimLostItem start", { claimId });
 
     try {
-        const response = await httpClient.post<ClaimLostItemApiResponse>(
-            `/api/items/${id}/unclaim`,
-            undefined,
+        const response = await httpClient.delete<ClaimLostItemApiResponse>(
+            `/api/items/unclaim/${claimId}`,
             requestConfig,
         );
         const payload = response.data;
 
         if (!payload.success || !payload.data) {
             console.log("[itemsApi] unclaimLostItem failed", {
-                id,
+                claimId,
                 status: response.status,
                 message: payload.message,
                 error: payload.error,
@@ -676,7 +675,7 @@ export async function unclaimLostItem(
         }
 
         console.log("[itemsApi] unclaimLostItem success", {
-            id,
+            claimId,
             message: payload.message,
         });
 
@@ -686,7 +685,7 @@ export async function unclaimLostItem(
         };
     } catch (error) {
         console.log("[itemsApi] unclaimLostItem error", {
-            id,
+            claimId,
             error: error instanceof Error ? error.message : error,
         });
         throw error;
