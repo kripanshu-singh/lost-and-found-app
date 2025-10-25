@@ -586,7 +586,7 @@ export async function fetchLostItemById(
 
 export type ItemClaimMutationResult = {
     message: string;
-    item: LostItemDetail;
+    item: LostItemDetail | null;
 };
 
 export async function claimLostItem(
@@ -658,7 +658,7 @@ export async function unclaimLostItem(
         );
         const payload = response.data;
 
-        if (!payload.success || !payload.data) {
+        if (!payload.success) {
             console.log("[itemsApi] unclaimLostItem failed", {
                 claimId,
                 status: response.status,
@@ -681,7 +681,7 @@ export async function unclaimLostItem(
 
         return {
             message: payload.message || "Item is now available.",
-            item: payload.data,
+            item: payload.data ?? null,
         };
     } catch (error) {
         console.log("[itemsApi] unclaimLostItem error", {
