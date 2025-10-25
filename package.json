@@ -8,7 +8,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "gen:icons": "node ./scripts/generate-icons.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -53,7 +54,8 @@
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "expo-module-scripts": "^5.0.7",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "sharp": "^0.33.5"
   },
   "private": true
 }
