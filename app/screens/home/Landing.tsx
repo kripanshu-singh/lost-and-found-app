@@ -498,8 +498,8 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
     },
     profileButton: {
       padding: 4,
-      width: 40,
-      height: 40,
+      width: 50,
+      height: 50,
       borderRadius: 20,
       overflow: "hidden",
       alignItems: "center",
@@ -522,7 +522,7 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
     profilePhoto: {
       width: "100%",
       height: "100%",
-      borderRadius: 20,
+      borderRadius: 50,
     },
     menuOverlay: {
       flex: 1,
