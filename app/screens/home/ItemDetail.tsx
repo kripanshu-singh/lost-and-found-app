@@ -463,7 +463,13 @@ export default function ItemDetail() {
     setIsUnclaiming(true);
     try {
       const result = await unclaimLostItem(userClaim.id);
-      setItem(result.item);
+      if (result.item) {
+        setItem(result.item);
+      } else if (item?.id) {
+        await loadItem("refresh");
+      }
+      const successMessage = result.message || "Your claim has been withdrawn.";
+      Alert.alert("Claim withdrawn", successMessage);
     } catch (error) {
       const message =
         error instanceof ApiError
@@ -473,7 +479,7 @@ export default function ItemDetail() {
     } finally {
       setIsUnclaiming(false);
     }
-  }, [session, userClaim?.id]);
+  }, [session, userClaim?.id, item?.id, loadItem]);
 
   const performDeleteItem = useCallback(async () => {
     const itemId = item?.id;
