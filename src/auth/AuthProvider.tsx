@@ -42,6 +42,7 @@ interface AuthContextValue {
   clearSession(): Promise<void>;
   logout(): Promise<void>;
   refreshSession(): Promise<AuthSession | null>;
+  syncPushToken(options?: { force?: boolean }): Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -308,59 +309,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const syncPushToken = useCallback(async () => {
-    if (!sessionRef.current) {
-      return;
-    }
+  const syncPushToken = useCallback(
+    async (options?: { force?: boolean }): Promise<string | null> => {
+      if (!sessionRef.current) {
+        return null;
+      }
 
-    if (isSyncingPushTokenRef.current) {
-      return;
-    }
+      if (isSyncingPushTokenRef.current) {
+        return pushTokenRef.current;
+      }
 
-    isSyncingPushTokenRef.current = true;
+      const force = options?.force ?? false;
+      isSyncingPushTokenRef.current = true;
+      let result = pushTokenRef.current;
 
-    try {
-      const token = await registerForPushNotifications();
+      try {
+        const token = await registerForPushNotifications();
 
-      if (!token) {
-        if (pushTokenRef.current) {
-          console.log("[AuthProvider] Clearing stale FCM token on backend");
-          try {
-            await updateUserFcmToken(null);
-          } catch (tokenError) {
-            console.log("[AuthProvider] Failed to clear FCM token", {
-              error:
-                tokenError instanceof Error ? tokenError.message : tokenError,
-            });
+        if (!token) {
+          if (pushTokenRef.current) {
+            console.log("[AuthProvider] Clearing stale FCM token on backend");
+            try {
+              await updateUserFcmToken(null);
+            } catch (tokenError) {
+              console.log("[AuthProvider] Failed to clear FCM token", {
+                error:
+                  tokenError instanceof Error ? tokenError.message : tokenError,
+              });
+            }
+            pushTokenRef.current = null;
           }
-          pushTokenRef.current = null;
+          result = null;
+          return result;
         }
-        return;
-      }
 
-      if (pushTokenRef.current === token) {
-        return;
-      }
+        if (!force && pushTokenRef.current === token) {
+          result = token;
+          return result;
+        }
 
-      const response = await updateUserFcmToken(token);
-      if (!response.success) {
-        throw new ApiError(
-          response.message || response.error || "Unable to update FCM token",
-        );
-      }
+        const response = await updateUserFcmToken(token);
+        if (!response.success) {
+          throw new ApiError(
+            response.message || response.error || "Unable to update FCM token",
+          );
+        }
 
-      pushTokenRef.current = token;
-      console.log("[AuthProvider] FCM token synced", {
-        tokenPreview: `${token.slice(0, 8)}…${token.slice(-6)}`,
-      });
-    } catch (error) {
-      console.log("[AuthProvider] syncPushToken error", {
-        error: error instanceof Error ? error.message : error,
-      });
-    } finally {
-      isSyncingPushTokenRef.current = false;
-    }
-  }, [updateUserFcmToken, registerForPushNotifications]);
+        pushTokenRef.current = token;
+        result = token;
+        console.log("[AuthProvider] FCM token synced", {
+          tokenPreview: `${token.slice(0, 8)}…${token.slice(-6)}`,
+        });
+        return result;
+      } catch (error) {
+        console.log("[AuthProvider] syncPushToken error", {
+          error: error instanceof Error ? error.message : error,
+        });
+        return result;
+      } finally {
+        isSyncingPushTokenRef.current = false;
+      }
+    },
+    [updateUserFcmToken, registerForPushNotifications],
+  );
 
   const refreshSession = useCallback(async () => {
     console.log("[AuthProvider] refreshSession triggered");
@@ -379,15 +390,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!session) {
       pushTokenRef.current = null;
-      return;
     }
-
-    syncPushToken().catch((error) => {
-      console.log("[AuthProvider] push token sync invocation failed", {
-        error: error instanceof Error ? error.message : error,
-      });
-    });
-  }, [session, syncPushToken]);
+  }, [session]);
 
   useEffect(() => {
     const unregister = registerTokenRefreshHandler(async () => {
@@ -411,6 +415,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearSession,
       logout,
       refreshSession,
+      syncPushToken,
     }),
     [
       clearSession,
@@ -418,6 +423,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       persistSession,
       refreshSession,
+      syncPushToken,
       session,
     ],
   );
