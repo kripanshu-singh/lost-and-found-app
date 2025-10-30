@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
   DateTimePickerAndroid,
 } from "@react-native-community/datetimepicker";
+import { useFocusEffect } from "@react-navigation/native";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import React, {
@@ -34,9 +35,9 @@ import MapView, {
   type Region,
 } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { createLostItemAlert } from "../../../src/api/alerts";
 import { ApiError } from "../../../src/api/httpClient";
 import { type ItemCategory } from "../../../src/api/items";
+import { useAuth } from "../../../src/auth/AuthProvider";
 import { Palette, useAppTheme } from "../../../src/theme";
 
 const CATEGORY_OPTIONS: { label: string; value: ItemCategory; icon: string }[] =
@@ -68,6 +69,7 @@ type LatLng = {
 
 export default function CreateAlert() {
   const router = useRouter();
+  const { syncPushToken } = useAuth();
   const { palette, scheme } = useAppTheme();
   const styles = useMemo(
     () => createStyles(palette, scheme),
@@ -104,6 +106,31 @@ export default function CreateAlert() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [keywordsError, setKeywordsError] = useState<string | null>(null);
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      const ensureToken = async () => {
+        if (!isActive) {
+          return;
+        }
+        try {
+          await syncPushToken();
+        } catch (error) {
+          console.log("[CreateAlert] Failed to sync push token", {
+            error: error instanceof Error ? error.message : error,
+          });
+        }
+      };
+
+      void ensureToken();
+
+      return () => {
+        isActive = false;
+      };
+    }, [syncPushToken]),
+  );
 
   useEffect(() => {
     if (!isMapModalVisible || !mapRef.current) {

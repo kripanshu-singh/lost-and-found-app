@@ -26,6 +26,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { submitDispute } from "../../../src/api/disputes";
 import { ApiError } from "../../../src/api/httpClient";
 import {
   claimLostItem,
@@ -71,6 +72,7 @@ export default function ItemDetail() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [isUnclaiming, setIsUnclaiming] = useState(false);
+  const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const heroScrollRef = useRef<ScrollView | null>(null);
@@ -338,6 +340,15 @@ export default function ItemDetail() {
     return statusNormalized === "CLAIMED";
   }, [statusNormalized]);
 
+  const isApprovedClaimer = useMemo(() => {
+    const approvedId = item?.approvedClaimer?.id;
+    const userId = session?.userId;
+    if (!approvedId || !userId) {
+      return false;
+    }
+    return String(approvedId) === String(userId);
+  }, [item?.approvedClaimer?.id, session?.userId]);
+
   const dropOffLocation = useMemo(() => {
     return item?.locationFound || "the designated drop-off point";
   }, [item?.locationFound]);
@@ -362,6 +373,21 @@ export default function ItemDetail() {
     }
     return !isOwner && isUserClaimPending;
   }, [session, item, isOwner, isUserClaimPending, userClaim]);
+
+  const canShowDisputeButton = useMemo(() => {
+    if (!session || !item || !isClaimedStatus) {
+      return false;
+    }
+    // Don't show to the item owner
+    if (isOwner) {
+      return false;
+    }
+    // Don't show to the approved claimer
+    if (isApprovedClaimer) {
+      return false;
+    }
+    return true;
+  }, [session, item, isClaimedStatus, isOwner, isApprovedClaimer]);
 
   const claimButtonLabel = useMemo(() => {
     if (isClaiming) {
@@ -480,6 +506,57 @@ export default function ItemDetail() {
       setIsUnclaiming(false);
     }
   }, [session, userClaim?.id, item?.id, loadItem]);
+
+  const handleReportClaimIssue = useCallback(async () => {
+    if (!item?.id || isSubmittingDispute) {
+      return;
+    }
+
+    Alert.alert(
+      "Report an issue",
+      "Are you sure you want to dispute this claim? This will notify campus staff that you believe you're the rightful owner.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Submit Dispute",
+          style: "default",
+          onPress: async () => {
+            setIsSubmittingDispute(true);
+            try {
+              const response = await submitDispute(item.id);
+
+              if (!response || response.success === false) {
+                // Backend returned a structured failure (e.g. 409 duplicate or 404 not found)
+                const message =
+                  response?.message || "Unable to submit dispute right now.";
+                Alert.alert("Dispute failed", message);
+              } else {
+                Alert.alert(
+                  "Dispute submitted",
+                  response.message ||
+                    "Your dispute has been submitted successfully. Campus staff will review your claim.",
+                  [{ text: "OK" }],
+                );
+                // Optionally refresh the item to see updated dispute status
+                await loadItem("refresh");
+              }
+            } catch (error) {
+              const message =
+                error instanceof ApiError
+                  ? error.message
+                  : "Unable to submit dispute right now. Please try again.";
+              Alert.alert("Dispute failed", message);
+            } finally {
+              setIsSubmittingDispute(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [item?.id, isSubmittingDispute, loadItem]);
 
   const performDeleteItem = useCallback(async () => {
     const itemId = item?.id;
@@ -799,6 +876,36 @@ export default function ItemDetail() {
             </View>
           ) : null}
 
+          {canShowDisputeButton ? (
+            <TouchableOpacity
+              style={[
+                styles.disputeButton,
+                { borderColor: palette.danger },
+                isSubmittingDispute && styles.disputeButtonDisabled,
+              ]}
+              onPress={handleReportClaimIssue}
+              activeOpacity={0.85}
+              disabled={isSubmittingDispute}
+            >
+              {isSubmittingDispute ? (
+                <ActivityIndicator size="small" color={palette.danger} />
+              ) : (
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={18}
+                  color={palette.danger}
+                />
+              )}
+              <Text
+                style={[styles.disputeButtonText, { color: palette.danger }]}
+              >
+                {isSubmittingDispute
+                  ? "Submitting dispute..."
+                  : "Report an issue with this claim"}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
           {!isClaimedStatus && !hasClaimed && isPendingVerification ? (
             <View
               style={[
@@ -885,7 +992,8 @@ export default function ItemDetail() {
           {!isOwner &&
           session &&
           hasClaimed &&
-          (canAttemptUnclaim || isUnclaiming) ? (
+          (canAttemptUnclaim || isUnclaiming) &&
+          !(isClaimedStatus && isApprovedClaimer) ? (
             <TouchableOpacity
               style={[
                 styles.unclaimButton,
@@ -1099,6 +1207,8 @@ function PersonRow({ title, person, fallbackLabel, icon }: PersonRowProps) {
     () => personRowStyles(palette, scheme),
     [palette, scheme],
   );
+  const displayName = person?.name ?? fallbackLabel;
+  const initials = useMemo(() => extractInitials(displayName), [displayName]);
 
   return (
     <View style={styles.container}>
@@ -1111,14 +1221,14 @@ function PersonRow({ title, person, fallbackLabel, icon }: PersonRowProps) {
           />
         ) : (
           <View style={styles.avatarFallback}>
-            <Ionicons name={icon} size={20} color={palette.surface} />
+            <Text style={styles.avatarFallbackText}>{initials}</Text>
           </View>
         )}
       </View>
       <View style={styles.personTextColumn}>
         <Text style={styles.personTitle}>{title}</Text>
         <Text style={styles.personValue} numberOfLines={1}>
-          {person?.name ?? fallbackLabel}
+          {displayName}
         </Text>
       </View>
     </View>
@@ -1168,6 +1278,25 @@ function InfoCell({ icon, label, value, onPress, accentColor }: InfoCellProps) {
       {content}
     </TouchableOpacity>
   );
+}
+
+function extractInitials(value: string): string {
+  if (!value) {
+    return "U";
+  }
+
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) {
+    return "U";
+  }
+
+  const initials = parts
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+
+  return initials || "U";
 }
 
 function formatCategoryLabel(category: ItemCategory): string {
@@ -1603,6 +1732,27 @@ const createStyles = (palette: Palette, scheme: "light" | "dark") =>
       fontWeight: "600",
       color: palette.text,
     },
+    disputeButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      borderRadius: 16,
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderWidth: 1,
+      backgroundColor:
+        scheme === "dark" ? "rgba(255,69,58,0.12)" : "rgba(255,59,48,0.08)",
+      marginBottom: 12,
+    },
+    disputeButtonDisabled: {
+      opacity: 0.6,
+    },
+    disputeButtonText: {
+      fontSize: 15,
+      fontWeight: "600",
+      color: palette.danger,
+    },
     ownerActionsRow: {
       flexDirection: "row",
       gap: 12,
@@ -1744,6 +1894,11 @@ const personRowStyles = (palette: Palette, scheme: "light" | "dark") =>
       backgroundColor: palette.primary,
       alignItems: "center",
       justifyContent: "center",
+    },
+    avatarFallbackText: {
+      fontSize: 16,
+      fontWeight: "700",
+      color: palette.surface,
     },
     personTextColumn: {
       flex: 1,
