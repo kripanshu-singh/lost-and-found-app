@@ -37,7 +37,9 @@ const APP_ICON_OUT = path.join(IMAGES_DIR, "app-icon.png");
 
 // Sizes (Android adaptive icons use 432px for 4x density assets)
 const ANDROID_SIZE = 432; // full size
-const ANDROID_PADDING = 48; // safe padding around artwork
+// Safe padding around artwork (pixels). Can be overridden with env var ANDROID_PADDING.
+// Example: ANDROID_PADDING=64 node ./scripts/generate-icons.js
+const ANDROID_PADDING = parseInt(process.env.ANDROID_PADDING || "48", 10); // safe padding around artwork
 const CONTENT_SIZE = ANDROID_SIZE - ANDROID_PADDING * 2; // content box
 
 const IOS_ICON_SIZE = 1024; // Expo recommends 1024x1024 source icon
@@ -174,6 +176,9 @@ async function generateIosIcon(inputPath) {
 async function main() {
   await ensureImagesDir();
   const { inputPath } = await pickInput();
+  console.log(
+    `Using ANDROID_PADDING = ${ANDROID_PADDING}px (content box ${CONTENT_SIZE}×${CONTENT_SIZE})`,
+  );
 
   console.log(
     "• Generating Android foreground icon →",
