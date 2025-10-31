@@ -103,7 +103,7 @@ export default function ReportLostItem() {
 
   const mapRef = useRef<MapView | null>(null);
   const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
-  const [mapType, setMapType] = useState<MapType>("standard");
+  const [mapType, setMapType] = useState<MapType>("hybrid");
   const [selectedCoordinate, setSelectedCoordinate] = useState<LatLng | null>(
     null,
   );
@@ -1123,7 +1123,6 @@ type FormHeaderProps = {
 function FormHeader({ styles, palette, onBack }: FormHeaderProps) {
   return (
     <View style={styles.headerRow}>
-    
       <Text style={styles.title}>Report Lost Item</Text>
       <View style={{ width: 32 }} />
     </View>
