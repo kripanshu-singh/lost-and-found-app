@@ -35,6 +35,7 @@ import MapView, {
   type Region,
 } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { createLostItemAlert } from "../../../src/api/alerts";
 import { ApiError } from "../../../src/api/httpClient";
 import { type ItemCategory } from "../../../src/api/items";
 import { useAuth } from "../../../src/auth/AuthProvider";
@@ -315,7 +316,17 @@ export default function CreateAlert() {
         locationDescription: locationDescription.trim() || undefined,
         dateLost: dateLost ? formatDateForApi(dateLost) : undefined,
       };
-      router.replace("/screens/home/Landing");
+      await createLostItemAlert(payload);
+      Alert.alert(
+        "Alert created",
+        "We will notify you when a matching item is reported.",
+        [
+          {
+            text: "OK",
+            onPress: () => router.replace("/screens/home/Landing"),
+          },
+        ],
+      );
     } catch (error) {
       const message =
         error instanceof ApiError
