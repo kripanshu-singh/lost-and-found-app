@@ -98,7 +98,7 @@ export default function CreateAlert() {
     null,
   );
   const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
-  const [mapType, setMapType] = useState<MapType>("standard");
+  const [mapType, setMapType] = useState<MapType>("hybrid");
   const [isMapModalVisible, setMapModalVisible] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);

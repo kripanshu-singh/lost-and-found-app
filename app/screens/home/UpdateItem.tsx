@@ -130,7 +130,7 @@ export default function UpdateItem() {
 
   const mapRef = useRef<MapView | null>(null);
   const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
-  const [mapType, setMapType] = useState<MapType>("standard");
+  const [mapType, setMapType] = useState<MapType>("hybrid");
   const [selectedCoordinate, setSelectedCoordinate] = useState<LatLng | null>(
     null,
   );
