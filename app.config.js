@@ -1,7 +1,9 @@
 module.exports = ({ config }) => {
   // Get environment variables
   const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || "";
-  const API_BASE_URL = process.env.API_BASE_URL || "http://192.168.29.123:8080";
+  const API_BASE_URL =
+    process.env.EXPO_PUBLIC_API_BASE_URL ||
+    "https://lost-and-found-app-612814543741.asia-south1.run.app";
 
   return {
     ...config,
