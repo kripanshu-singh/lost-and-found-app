@@ -83,7 +83,7 @@
                          ▼
 ┌──────────────────────────────────────────────────┐
 │              Backend REST API                    │
-│         (http://192.168.29.123:8080)             │
+│(https://lost-and-found-app-612814543741.asia-south1.run.app)
 └──────────────────────────────────────────────────┘
 ```
 
@@ -1088,7 +1088,7 @@ Configured in `app.json`:
 {
   "expo": {
     "extra": {
-      "apiBaseUrl": "http://192.168.29.123:8080"
+      "apiBaseUrl": "https://lost-and-found-app-612814543741.asia-south1.run.app"
     }
   }
 }
@@ -1584,7 +1584,7 @@ Configure API base URL in `app.json`:
 {
   "expo": {
     "extra": {
-      "apiBaseUrl": "http://192.168.29.123:8080"
+      "apiBaseUrl": "https://lost-and-found-app-612814543741.asia-south1.run.app"
     }
   }
 }
