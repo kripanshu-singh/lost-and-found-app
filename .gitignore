@@ -42,13 +42,15 @@ app-example
 /ios
 /android
 
+# Environment and sensitive files
 .env
-google-
-services.json
-# google-services-OLD.json
-# GoogleService-Info.plist
+
+# Firebase config files (contain sensitive API keys)
+google-services.json
+GoogleService-Info.plist
+
+# Temporary documentation files
 Gemini.md
 GEMINI.md
 ./GEMINI.md
 .GEMINI.md
-google-services.json
