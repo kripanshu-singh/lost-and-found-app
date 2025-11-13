@@ -3,22 +3,23 @@
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Core Features](#core-features)
-4. [Technical Stack](#technical-stack)
-5. [Project Structure](#project-structure)
-6. [Authentication System](#authentication-system)
-7. [Item Management](#item-management)
-8. [Search and Filtering](#search-and-filtering)
-9. [Claims System](#claims-system)
-10. [User Profile Management](#user-profile-management)
-11. [Theme System](#theme-system)
-12. [Push Notifications](#push-notifications)
-13. [API Integration](#api-integration)
-14. [State Management](#state-management)
-15. [UI Components](#ui-components)
-16. [Build and Deployment](#build-and-deployment)
-17. [Development Guide](#development-guide)
+2. [Security Guidelines](#security-guidelines)
+3. [Architecture](#architecture)
+4. [Core Features](#core-features)
+5. [Technical Stack](#technical-stack)
+6. [Project Structure](#project-structure)
+7. [Authentication System](#authentication-system)
+8. [Item Management](#item-management)
+9. [Search and Filtering](#search-and-filtering)
+10. [Claims System](#claims-system)
+11. [User Profile Management](#user-profile-management)
+12. [Theme System](#theme-system)
+13. [Push Notifications](#push-notifications)
+14. [API Integration](#api-integration)
+15. [State Management](#state-management)
+16. [UI Components](#ui-components)
+17. [Build and Deployment](#build-and-deployment)
+18. [Development Guide](#development-guide)
 
 ---
 
@@ -35,6 +36,33 @@
 - **Alert System**: Create alerts for specific items users are looking for
 - **Theme Support**: Light, dark, and system-based theme modes
 - **Push Notifications**: FCM integration for real-time updates
+
+---
+
+## Security Guidelines
+
+**⚠️ IMPORTANT: Before setting up the project, please read the [SECURITY.md](./SECURITY.md) file.**
+
+This project requires sensitive Firebase configuration files that must **NEVER** be committed to the repository:
+
+- `google-services.json` (Android Firebase config)
+- `GoogleService-Info.plist` (iOS Firebase config)
+- `.env` (Environment variables)
+
+### Quick Setup for Sensitive Files
+
+1. **Firebase Configuration:**
+   - Download `google-services.json` from your [Firebase Console](https://console.firebase.google.com/)
+   - Place it in the project root directory
+   - Verify it's not tracked: `git status` (should not appear)
+   - See `google-services.json.example` for expected structure
+
+2. **Environment Variables:**
+   - Copy `.env.example` to `.env` (if available)
+   - Add your API keys and endpoints
+   - Never commit the `.env` file
+
+For detailed security practices, troubleshooting, and what to do if you accidentally commit sensitive files, see **[SECURITY.md](./SECURITY.md)**.
 
 ---
 
@@ -1600,17 +1628,31 @@ const apiBaseUrl = Constants.expoConfig?.extra?.apiBaseUrl;
 
 ### Google Services (Android)
 
-Place `google-services.json` in project root for FCM:
+**⚠️ Security Notice:** Never commit `google-services.json` to the repository. See [SECURITY.md](./SECURITY.md) for details.
 
-```json
+To set up Firebase for Android:
+
+1. Download `google-services.json` from [Firebase Console](https://console.firebase.google.com/)
+2. Place it in the project root: `./google-services.json`
+3. Verify it's gitignored: `git status` should not show this file
+4. See `google-services.json.example` for expected file structure
+
+The app is configured to use this file in `app.config.js`:
+
+```javascript
 {
-  "expo": {
-    "android": {
-      "googleServicesFile": "./google-services.json"
-    }
+  "android": {
+    "googleServicesFile": "./google-services.json"
   }
 }
 ```
+
+For production builds with EAS, use secrets:
+```bash
+eas secret:create --scope project --name GOOGLE_SERVICES_JSON --value "$(cat google-services.json)"
+```
+
+See [SECURITY.md](./SECURITY.md) for more details on managing Firebase credentials.
 
 ---
 
@@ -1771,9 +1813,12 @@ Solution: Token refresh should be automatic via interceptor
 
 #### 4. **Android Build Fails**
 
-- Check `google-services.json` is present
+- Ensure `google-services.json` is present in project root (download from Firebase Console)
+- Verify the file is valid JSON (not corrupted)
+- Check that the package name matches: `me.kripanshu.lostandfoundapp`
 - Verify Android SDK is up to date
 - Clear Metro bundler cache: `npx expo start -c`
+- See [SECURITY.md](./SECURITY.md) for detailed Firebase setup instructions
 
 ### Best Practices
 
